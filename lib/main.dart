@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:projects/splash_screen.dart';
+import 'package:projects/auth/login_screen.dart';
+import 'package:projects/screen/splash_screen.dart';
+import 'package:get/get.dart';
 
 
 
@@ -15,11 +17,11 @@ void main() {
       appId: "1:1087849438293:web:99eb5bee6a544227e8c8dc",
       measurementId: "G-9QEHEEZNF7"));
 
-  runApp(const SplashScreenApp());
+  runApp(const MyApp());
 }
 
-class SplashScreenApp extends StatelessWidget {
-  const SplashScreenApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
