@@ -139,7 +139,7 @@ class _SignupScreenState extends State<SignupScreen> {
             if (isMaintenanceProvider)
               CustomTextField(
                 controller: _certificateController,
-                hint: 'Enter your certification details',
+                hint: 'Certification Number',
                 label: 'Certificate',
               ),
             if (isMaintenanceProvider) const SizedBox(height: 20),
@@ -219,7 +219,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (user != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       } else {
         throw "Failed to sign up";

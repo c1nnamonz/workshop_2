@@ -1,11 +1,15 @@
 import 'dart:developer';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/signup_screen.dart';
 import 'package:projects/home_page.dart';
 import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
+
+import '../userpage/mp_homepage.dart';
+import '../userpage/user_homepage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -86,9 +90,33 @@ class _LoginScreenState extends State<LoginScreen> {
         _username.text, _password.text);
 
     if (user != null) {
-      log("User Logged In");
-      goToHome(context);
+      // Fetch user details from Firestore to determine the role
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final role = userDoc.data()?['role'] ?? 'User';
+
+        if (role == 'Maintenance Provider') {
+          log("Maintenance Provider Logged In");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MaintenanceProviderHomePage()),
+          );
+        } else {
+          log("Normal User Logged In");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserHomePage()),
+          );
+        }
+      }
+    } else {
+      log("Login failed");
     }
   }
+
 
 }
