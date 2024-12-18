@@ -1,8 +1,6 @@
 import 'dart:developer';
-
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
-import 'package:projects/home_page.dart';
 import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +18,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _certificateController = TextEditingController();
-
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -43,133 +40,159 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign Up'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => setState(() {
-                    isMaintenanceProvider = false;
-                  }),
-                  style: TextButton.styleFrom(
-                    backgroundColor: !isMaintenanceProvider ? Colors.green : Colors.grey[300],
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  ),
-                  child: const Text('User', style: TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => setState(() {
-                    isMaintenanceProvider = true;
-                  }),
-                  style: TextButton.styleFrom(
-                    backgroundColor: isMaintenanceProvider ? Colors.green : Colors.grey[300],
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  ),
-                  child: const Text('Maintenance Provider', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            CustomTextField(
-              controller: _emailController,
-              hint: 'Enter your email',
-              label: 'Email',
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 10),
-            CustomTextField(
-              controller: _usernameController,
-              hint: 'Enter your username',
-              label: 'Username',
-            ),
-            const SizedBox(height: 10),
-            CustomTextField(
-              controller: _passwordController,
-              hint: 'Enter your password',
-              label: 'Password',
-              isPassword: true,
-            ),
-            const SizedBox(height: 10),
-            CustomTextField(
-              controller: _confirmPasswordController,
-              hint: 'Re-enter your password',
-              label: 'Confirm Password',
-              isPassword: true,
-            ),
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Expanded(
-                  child: CustomTextField(
-                    controller: _firstNameController,
-                    hint: 'Enter your first name',
-                    label: 'First Name',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: CustomTextField(
-                    controller: _lastNameController,
-                    hint: 'Enter your last name',
-                    label: 'Last Name',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            CustomTextField(
-              controller: _phoneController,
-              hint: 'Enter your phone number',
-              label: 'Phone Number',
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 10),
-
-            if (isMaintenanceProvider)
-              CustomTextField(
-                controller: _certificateController,
-                hint: 'Certification Number',
-                label: 'Certificate',
+      body: Stack(
+        children: [
+          // Background image
+          Container(
+            height: double.infinity, // Ensures the container takes up the full height
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('images/login_bg.png'), // Use your image here
+                fit: BoxFit.cover,
               ),
-            if (isMaintenanceProvider) const SizedBox(height: 20),
-            const SizedBox(height: 20),
-            CustomButton(
-              label: 'Sign Up',
-              onPressed: _signUp,
             ),
-            const SizedBox(height: 10),
+          ),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          // Back button
+          Positioned(
+            top: 40, // Adjust the position of the back button
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+
+          // Form and other content
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Already have an account?'),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
+                const SizedBox(height: 100),
+                const Center(
+                  child: Text(
+                    'Sign Up',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4F4B4B),
+                    ),
                   ),
-                  child: const Text('Login', style: TextStyle(color: Colors.red)),
                 ),
+                const SizedBox(height: 20),
+
+                // User / Maintenance Provider toggle buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => setState(() {
+                        isMaintenanceProvider = false;
+                      }),
+                      style: TextButton.styleFrom(
+                        backgroundColor: !isMaintenanceProvider ? Colors.green : Colors.grey[300],
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                      ),
+                      child: const Text('User', style: TextStyle(color: Colors.white)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        isMaintenanceProvider = true;
+                      }),
+                      style: TextButton.styleFrom(
+                        backgroundColor: isMaintenanceProvider ? Colors.green : Colors.grey[300],
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                      ),
+                      child: const Text('Maintenance Provider', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Form Fields
+                CustomTextField(
+                  controller: _emailController,
+                  hint: 'Enter your email',
+                  label: 'Email',
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: _usernameController,
+                  hint: 'Enter your username',
+                  label: 'Username',
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: _passwordController,
+                  hint: 'Enter your password',
+                  label: 'Password',
+                  isPassword: true,
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: _confirmPasswordController,
+                  hint: 'Re-enter your password',
+                  label: 'Confirm Password',
+                  isPassword: true,
+                ),
+                const SizedBox(height: 10),
+
+                // Name Fields
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        controller: _firstNameController,
+                        hint: 'Enter your first name',
+                        label: 'First Name',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: _lastNameController,
+                        hint: 'Enter your last name',
+                        label: 'Last Name',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Phone number
+                CustomTextField(
+                  controller: _phoneController,
+                  hint: 'Enter your phone number',
+                  label: 'Phone Number',
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 10),
+
+                // Certificate field for Maintenance Provider
+                if (isMaintenanceProvider)
+                  CustomTextField(
+                    controller: _certificateController,
+                    hint: 'Certification Number',
+                    label: 'Certificate',
+                  ),
+                if (isMaintenanceProvider) const SizedBox(height: 20),
+                const SizedBox(height: 20),
+
+                // Sign Up button
+                CustomButton(
+                  textColor: Colors.white,
+                  color: Colors.green,
+                  label: 'Sign Up',
+                  onPressed: _signUp,
+                ),
+                const SizedBox(height: 10),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

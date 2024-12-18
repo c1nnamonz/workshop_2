@@ -32,48 +32,80 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25),
-        child: Column(
-          children: [
-            const Spacer(),
-            const Text("Login",
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 50),
-            CustomTextField(
-              hint: "Enter Username",
-              label: "Username",
-              controller: _username,
+      body: Stack(
+        children: [
+          // Background image
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage("images/login_bg.png"),
+                fit: BoxFit.cover,
+              ),
             ),
-            const SizedBox(height: 20),
-            CustomTextField(
-              hint: "Enter Password",
-              label: "Password",
-              isPassword: true,
-              controller: _password,
+          ),
+          // Login form content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25),
+            child: Column(
+              children: [
+                const Spacer(),
+                const Text(
+                  "Hello!",
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black, // Ensure the text is visible on the background
+                  ),
+                ),
+                const SizedBox(height: 50),
+                CustomTextField(
+                  hint: "Enter Username",
+                  label: "Username",
+                  controller: _username,
+                ),
+                const SizedBox(height: 20),
+                CustomTextField(
+                  hint: "Enter Password",
+                  label: "Password",
+                  isPassword: true,
+                  controller: _password,
+                ),
+                const SizedBox(height: 30),
+                CustomButton(
+                  label: "Login",
+                  textColor: Colors.white,
+                  onPressed: _login,
+                  color: Colors.green, // Custom button color
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Does not have an account? ",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                    InkWell(
+                      onTap: () => goToSignup(context),
+                      child: const Text(
+                        "Signup",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+              ],
             ),
-            const SizedBox(height: 30),
-            CustomButton(
-              label: "Login",
-              onPressed: _login,
-            ),
-            const SizedBox(height: 5),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text("Does not have an account? "),
-              InkWell(
-                onTap: () => goToSignup(context),
-                child:
-                const Text("Signup", style: TextStyle(color: Colors.red)),
-              )
-            ]),
-            const Spacer()
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+
 
   goToSignup(BuildContext context) => Navigator.push(
     context,
