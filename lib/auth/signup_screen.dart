@@ -15,37 +15,20 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  // TextEditingControllers for various input fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _certificateController = TextEditingController();
 
-  // New Controllers for Full Name, Last Name, Phone
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  // Variables for City and State (Strings instead of TextEditingController)
-  String? _selectedCity;
-  String? _selectedState;
-
-  bool isMaintenanceProvider = false; // Toggle state
-
-  // Updated map of states and their respective cities, including 'Cheng'
-  Map<String, List<String>> stateCityMap = {
-    'Melaka': ['Ayer Keroh', 'Melaka Town', 'Cheng'], // Added 'Cheng' here
-    'Selangor': ['Shah Alam', 'Petaling Jaya', 'Cheng'], // Added 'Cheng' to another state for demonstration
-    'Kuala Lumpur': ['KL City Center', 'Cheras'],
-  };
-
-  // List of states
-  List<String> states = ['Melaka', 'Selangor', 'Kuala Lumpur'];
+  bool isMaintenanceProvider = false;
 
   @override
   void dispose() {
-    // Dispose controllers to free up resources
     _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -63,12 +46,11 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         title: const Text('Sign Up'),
       ),
-      body: SingleChildScrollView( // Added to prevent overflow when keyboard appears
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Role Toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -97,7 +79,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Common Fields
             CustomTextField(
               controller: _emailController,
               hint: 'Enter your email',
@@ -126,7 +107,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Full Name and Last Name Side by Side
             Row(
               children: [
                 Expanded(
@@ -148,7 +128,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Phone Number
             CustomTextField(
               controller: _phoneController,
               hint: 'Enter your phone number',
@@ -157,63 +136,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // State Dropdown
-            DropdownButtonFormField<String>(
-              value: _selectedState,
-              decoration: const InputDecoration(
-                labelText: 'Select State',
-                border: OutlineInputBorder(),
-              ),
-              hint: const Text('Select State'),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedState = newValue;
-                  _selectedCity = null; // Reset city when state changes
-                });
-              },
-              items: states.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              validator: (value) => value == null ? 'Please select a state' : null,
-            ),
-            const SizedBox(height: 10),
-
-            // City Dropdown (depends on selected state)
-            DropdownButtonFormField<String>(
-              value: _selectedCity,
-              decoration: const InputDecoration(
-                labelText: 'Select City',
-                border: OutlineInputBorder(),
-              ),
-              hint: const Text('Select City'),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedCity = newValue;
-                });
-              },
-              items: _selectedState == null
-                  ? []
-                  : stateCityMap[_selectedState]!.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              // Disable the dropdown if no state is selected
-              disabledHint: const Text('Select a state first'),
-              validator: (value) {
-                if (_selectedState != null && value == null) {
-                  return 'Please select a city';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-
-            // Maintenance Provider-Specific Field
             if (isMaintenanceProvider)
               CustomTextField(
                 controller: _certificateController,
@@ -221,19 +143,17 @@ class _SignupScreenState extends State<SignupScreen> {
                 label: 'Certificate',
               ),
             if (isMaintenanceProvider) const SizedBox(height: 20),
-
-            // Sign-Up Button
+            const SizedBox(height: 20),
             CustomButton(
               label: 'Sign Up',
               onPressed: _signUp,
             ),
             const SizedBox(height: 10),
 
-            // Login Redirect
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Already have an account?'), // Static text
+                const Text('Already have an account?'),
                 TextButton(
                   onPressed: () {
                     Navigator.pushReplacement(
@@ -242,7 +162,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     );
                   },
                   style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero, // Removes extra padding around the button
+                    padding: EdgeInsets.zero,
                   ),
                   child: const Text('Login', style: TextStyle(color: Colors.red)),
                 ),
@@ -262,11 +182,8 @@ class _SignupScreenState extends State<SignupScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
-    final city = _selectedCity ?? ''; // Use the city input or dropdown value
-    final state = _selectedState ?? ''; // Use the state input or dropdown value
     final certificate = isMaintenanceProvider ? _certificateController.text.trim() : null;
 
-    // Basic validation
     if (email.isEmpty ||
         username.isEmpty ||
         password.isEmpty ||
@@ -274,7 +191,6 @@ class _SignupScreenState extends State<SignupScreen> {
         firstName.isEmpty ||
         lastName.isEmpty ||
         phoneNumber.isEmpty ||
-        state.isEmpty ||
         (isMaintenanceProvider && certificate!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all required fields')),
@@ -289,8 +205,6 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Additional validations can be added here (e.g., email format, password strength)
-
     try {
       final user = await AuthService().createUserWithUsernameAndEmail(
         username,
@@ -301,9 +215,6 @@ class _SignupScreenState extends State<SignupScreen> {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
-        address: city, // You can use city as the address for simplicity or modify it
-        state: state,
-        zipCode: '', // Handle zip code as needed
       );
       if (user != null) {
         Navigator.pushReplacement(
@@ -314,7 +225,7 @@ class _SignupScreenState extends State<SignupScreen> {
         throw "Failed to sign up";
       }
     } catch (e) {
-      log('Sign-up error: $e'); // Log the error for debugging
+      log('Sign-up error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Sign-up failed: $e')),
       );
