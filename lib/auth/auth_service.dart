@@ -69,8 +69,10 @@ class AuthService {
   Future<void> signout() async {
     try {
       await _auth.signOut();
+      log("User successfully logged out");
     } catch (e) {
-      print("Something went wrong");
+      log("Error during signout: $e");
+      throw Exception("Logout failed");
     }
   }
 }
