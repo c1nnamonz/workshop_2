@@ -16,6 +16,7 @@ class AuthService {
           email: email, password: password);
 
       // Store user details in Firestore
+      // Inside userData map
       final userData = {
         'username': username,
         'email': email,
@@ -23,10 +24,9 @@ class AuthService {
         'firstName': firstName ?? '',
         'lastName': lastName ?? '',
         'phoneNumber': phoneNumber ?? '',
-        'address': address ?? '',
-        'state': state ?? '',
         'zipCode': zipCode ?? '',
       };
+
 
       // Add certificate if provided
       if (certificate != null && certificate.isNotEmpty) {
