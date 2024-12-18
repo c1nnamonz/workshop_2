@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _login,
                   color: Colors.green, // Custom button color
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

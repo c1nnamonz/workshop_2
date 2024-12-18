@@ -44,22 +44,12 @@ class _SignupScreenState extends State<SignupScreen> {
         children: [
           // Background image
           Container(
-            height: double.infinity, // Ensures the container takes up the full height
+            height: double.infinity,
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('images/login_bg.png'), // Use your image here
+                image: AssetImage('images/login_bg.png'),
                 fit: BoxFit.cover,
               ),
-            ),
-          ),
-
-          // Back button
-          Positioned(
-            top: 40, // Adjust the position of the back button
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
             ),
           ),
 
@@ -69,7 +59,7 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 100),
+                const SizedBox(height: 120),
                 const Center(
                   child: Text(
                     'Sign Up',
@@ -182,13 +172,34 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
 
                 // Sign Up button
+                // Inside the SignupScreen, customize the button size as desired
                 CustomButton(
                   textColor: Colors.white,
                   color: Colors.green,
                   label: 'Sign Up',
                   onPressed: _signUp,
+                  width: 140,  // Set a smaller width
+                  height: 42,  // Set a smaller height
                 ),
+
+
                 const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Already have an account? ",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                    InkWell(
+                      onTap: () => goToLogin(context),
+                      child: const Text(
+                        "Login",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -196,6 +207,11 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
+
+  goToLogin(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const LoginScreen()),
+  );
 
   void _signUp() async {
     final email = _emailController.text.trim();
@@ -227,6 +243,8 @@ class _SignupScreenState extends State<SignupScreen> {
       );
       return;
     }
+
+
 
     try {
       final user = await AuthService().createUserWithUsernameAndEmail(
