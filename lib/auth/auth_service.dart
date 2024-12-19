@@ -66,6 +66,24 @@ class AuthService {
     }
   }
 
+  Future<String> getUserRole(String uid) async {
+    try {
+      // Fetch user data from Firestore
+      var userDoc = await _firestore.collection('users').doc(uid).get();
+
+      // If the document exists, return the role
+      if (userDoc.exists) {
+        return userDoc.data()?['role'] ?? 'User'; // Default to 'User' if no role found
+      } else {
+        return 'User'; // Default role if no document is found
+      }
+    } catch (e) {
+      log("Error getting user role: ${e.toString()}");
+      return 'User'; // Default to 'User' if error occurs
+    }
+  }
+
+
   Future<void> signout() async {
     try {
       await _auth.signOut();
