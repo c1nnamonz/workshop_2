@@ -7,7 +7,7 @@ import '../userpage/mp_homepage.dart';
 import '../userpage/user_homepage.dart';
 
 
-//sgnsjnfjsnfbsnjgbsjnbfs
+//;alfnskfnsknfksnfksnf
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
