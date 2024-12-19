@@ -6,6 +6,8 @@ import 'package:projects/screen/onboard.dart';
 import '../userpage/mp_homepage.dart';
 import '../userpage/user_homepage.dart';
 
+
+//sgnsjnfjsnfbsnjgbsjnbfs
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
