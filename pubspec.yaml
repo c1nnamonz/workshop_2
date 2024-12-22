@@ -28,9 +28,10 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  geolocator: ^9.0.2
   flutter:
     sdk: flutter
-
+  image_picker: ^0.8.5+3
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -80,6 +81,28 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
      - images/
+     - images/fixitLogo.png
+     - images/all.png
+     - images/aircond.png
+     - images/plumbing.png
+     - images/cleaning.png
+     - images/electrical.png
+     - images/renovate.png
+     - images/security.png
+     - images/landscape.png
+     - images/pest.png
+     - images/appliances.png
+     - images/furniture.png
+     - images/smart.png
+     - images/pool.png
+     - images/logo1.png
+     - images/services.png
+     - images/bookings.png
+     - images/inbox.png
+     - images/chat.png
+     - images/user.png
+     - images/banner1.jpg
+     - images/profile-img.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

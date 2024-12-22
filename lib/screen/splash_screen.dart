@@ -4,7 +4,7 @@ import 'package:projects/auth/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:projects/screen/onboard.dart';
 import '../userpage/mp_homepage.dart';
-import '../userpage/user_homepage.dart';
+import '../normaluser/user_homepage.dart';
 
 
 //;alfnskfnsknfksnfksnf
