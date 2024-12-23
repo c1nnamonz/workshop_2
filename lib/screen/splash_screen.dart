@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> {
         // Redirect to UserHomePage
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const UserHomePage()),
+          MaterialPageRoute(builder: (context) => UserHomepage()),
         );
       }
     } else {
