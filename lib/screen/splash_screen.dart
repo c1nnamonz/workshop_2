@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:projects/screen/onboard.dart';
+import '../mp_page/mp_homepage.dart';
 import '../userpage/mp_homepage.dart';
 import '../normaluser/user_homepage.dart';
 
@@ -44,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> {
         // Redirect to UserHomePage
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const UserHomePage()),
+          MaterialPageRoute(builder: (context) => UserHomepage()),
         );
       }
     } else {
