@@ -7,6 +7,9 @@ import 'viewService.dart';
 import 'bookings.dart';
 import 'inbox.dart';
 import 'profile.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // Import Google Maps package
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -93,6 +96,61 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   bool _showMore = false;
   String _searchQuery = '';
+  String _currentLocation = 'Loading...'; // **Added variable to store location**
+
+  late GoogleMapController mapController;
+
+  // **Fetch current location when the page loads**
+  Future<void> _getUserLocation() async {
+    try {
+      // Check if location service is enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _currentLocation = 'Location services are disabled.'; // **Error message for location service**
+        });
+        return;
+      }
+
+      // Check for location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _currentLocation = 'Location permission denied'; // **Error message for location permission**
+          });
+          return;
+        }
+      }
+
+      // Get the current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _currentLocation =
+        '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}'; // **Display the latitude and longitude**
+      });
+
+      // Move the camera to the user's location
+      mapController.moveCamera(CameraUpdate.newLatLng(
+        LatLng(position.latitude, position.longitude),
+      ));
+
+    } catch (e) {
+      setState(() {
+        _currentLocation = 'Failed to get location: $e'; // **Error handling for location fetching**
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserLocation(); // **Call the method to fetch location on initialization**
+  }
 
   final List<String> categories = [
     'All',
@@ -311,6 +369,28 @@ class _HomePageContentState extends State<HomePageContent> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
             ),
             SizedBox(height: 10),
+            // **Location Display**
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                'Your Location: $_currentLocation', // **Show current location**
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+            ),
+            // Google Maps Widget
+            SizedBox(
+              height: 250, // Adjust height as needed
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(0.0, 0.0), // Default initial location
+                  zoom: 10,
+                ),
+                onMapCreated: (GoogleMapController controller) {
+                  mapController = controller;
+                },
+              ),
+            ),
+            // **Service Cards**
             Column(children: _getServiceCards()),
           ],
         ),
