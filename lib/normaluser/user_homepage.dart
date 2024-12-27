@@ -3,6 +3,7 @@ import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
+import 'chatbot.dart';
 import 'viewService.dart';
 import 'bookings.dart';
 import 'inbox.dart';
@@ -47,46 +48,60 @@ class _UserHomepageState extends State<UserHomepage> {
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('User Home'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => _logout(context),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        body: _pages[_selectedIndex],
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.deepOrange,
-          unselectedItemColor: Colors.grey[500],
-          items: const [
-            BottomNavigationBarItem(
-              icon: ImageIcon(AssetImage('images/services.png')),
-              label: 'Services',
-            ),
-            BottomNavigationBarItem(
-              icon: ImageIcon(AssetImage('images/bookings.png')),
-              label: 'Bookings',
-            ),
-            BottomNavigationBarItem(
-              icon: ImageIcon(AssetImage('images/inbox.png')),
-              label: 'Inbox',
-            ),
-            BottomNavigationBarItem(
-              icon: ImageIcon(AssetImage('images/user.png')),
-              label: 'Profile',
-            ),
-          ],
-        ),
+        title: const Text('User Home'),
+    actions: [
+    IconButton(
+    icon: const Icon(Icons.logout),
+    onPressed: () => _logout(context),
+    ),
+    ],
+    ),
+    backgroundColor: Colors.white,
+    body: _pages[_selectedIndex],
+    bottomNavigationBar: BottomNavigationBar(
+    currentIndex: _selectedIndex,
+    onTap: _onItemTapped,
+    type: BottomNavigationBarType.fixed,
+    backgroundColor: Colors.white,
+    selectedItemColor: Colors.deepOrange,
+    unselectedItemColor: Colors.grey[500],
+    items: const [
+    BottomNavigationBarItem(
+    icon: ImageIcon(AssetImage('images/services.png')),
+    label: 'Services',
+    ),
+    BottomNavigationBarItem(
+    icon: ImageIcon(AssetImage('images/bookings.png')),
+    label: 'Bookings',
+    ),
+    BottomNavigationBarItem(
+    icon: ImageIcon(AssetImage('images/inbox.png')),
+    label: 'Inbox',
+    ),
+    BottomNavigationBarItem(
+    icon: ImageIcon(AssetImage('images/user.png')),
+    label: 'Profile',
+    ),
+    ],
+    ),
+    floatingActionButton: FloatingActionButton(
+    onPressed: () {
+    // Replace this with your AI chatbot screen navigation logic
+    Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => ChatBotScreen()),
+    );
+    },
+    child: const Icon(Icons.chat),
+    backgroundColor: Color(0xFF4AA94E),
+    ),
       ),
     );
+
   }
 }
+
+
 
 class HomePageContent extends StatefulWidget {
   @override
@@ -298,7 +313,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15.0),
                 ),
-                contentPadding: EdgeInsets.symmetric(vertical: 15.0),
+                contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
                 fillColor: Colors.white,
                 filled: true,
               ),
@@ -363,25 +378,25 @@ class _HomePageContentState extends State<HomePageContent> {
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             const Text(
               'Available Services',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             // **Location Display**
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Text(
                 'Your Location: $_currentLocation', // **Show current location**
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
               ),
             ),
             // Google Maps Widget
             SizedBox(
               height: 250, // Adjust height as needed
               child: GoogleMap(
-                initialCameraPosition: CameraPosition(
+                initialCameraPosition: const CameraPosition(
                   target: LatLng(0.0, 0.0), // Default initial location
                   zoom: 10,
                 ),
