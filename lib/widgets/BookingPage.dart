@@ -13,10 +13,10 @@ class BookingPage extends StatelessWidget {
         return [
           {
             'customerName': 'John Doe',
-            'service': 'Haircut',
+            'service': 'Overflowing Sink',
             'date': '2025-01-03',
             'time': '10:00 AM',
-            'details': 'Looking for a quick trim.',
+            'details': 'Looking for a someone to fix it.',
           }
         ];
       }
