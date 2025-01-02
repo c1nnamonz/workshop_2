@@ -8,16 +8,41 @@ class ProfilePage extends StatelessWidget {
 
   Future<Map<String, dynamic>> _getUserInfo() async {
     final user = FirebaseAuth.instance.currentUser;
+
     if (user != null) {
-      // Fetch additional user details from Firestore if available
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      return {
-        'name': doc['name'] ?? 'User Name',
-        'email': user.email ?? 'No Email',
-        'profileImage': doc['profileImage'] ?? 'assets/profile_placeholder.png',
-      };
+      try {
+        // Attempt to fetch user data from Firestore
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          return {
+            'name': doc.data()?['name'] ?? 'User Name',
+            'email': user.email ?? 'No Email',
+            'profileImage': doc.data()?['profileImage'] ?? 'assets/profile_placeholder.png',
+          };
+        } else {
+          // Return fallback data if document does not exist
+          return {
+            'name': 'User Name',
+            'email': user.email ?? 'No Email',
+            'profileImage': 'assets/profile_placeholder.png',
+          };
+        }
+      } catch (e) {
+        // Handle Firestore or other errors
+        return {
+          'name': 'Error fetching name',
+          'email': user.email ?? 'No Email',
+          'profileImage': 'assets/profile_placeholder.png',
+        };
+      }
     }
-    return {};
+
+    // Return an empty map if no user is signed in
+    return {
+      'name': 'Guest',
+      'email': 'No Email',
+      'profileImage': 'assets/profile_placeholder.png',
+    };
   }
 
   void _logout(BuildContext context) async {
@@ -35,11 +60,16 @@ class ProfilePage extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError || !snapshot.hasData) {
+        } else if (snapshot.hasError) {
           return const Center(child: Text('Error loading profile information.'));
         }
 
-        final userInfo = snapshot.data!;
+        final userInfo = snapshot.data ?? {
+          'name': 'User Name',
+          'email': 'No Email',
+          'profileImage': 'assets/profile_placeholder.png',
+        };
+
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
