@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 
 class AuthService {
   final _auth = FirebaseAuth.instance;
@@ -9,7 +10,7 @@ class AuthService {
 
   Future<User?> createUserWithUsernameAndEmail(
       String username, String email, String password,
-      {String? role, String? certificate, String? firstName, String? lastName, String? phoneNumber, String? address, String? state, String? zipCode}) async {
+      {String? role, String? certificate, String? firstName, String? lastName, String? phoneNumber, String? address, String? state, String? zipCode, GeoPoint? location}) async {
     try {
       // Create a new user with email and password
       final cred = await _auth.createUserWithEmailAndPassword(
@@ -25,6 +26,7 @@ class AuthService {
         'lastName': lastName ?? '',
         'phoneNumber': phoneNumber ?? '',
         'zipCode': zipCode ?? '',
+        'location': location ?? GeoPoint(0, 0), // Default location
       };
 
 
