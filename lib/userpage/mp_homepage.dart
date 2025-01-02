@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
+import 'package:projects/widgets/MessagesPage.dart';
 import 'package:projects/userpage/profile_page.dart';
-import 'package:projects/widgets/BookingPage.dart'; // Ensure this file exists
+import 'package:projects/widgets/BookingPage.dart';
 
 class MaintenanceProviderHomePage extends StatefulWidget {
   const MaintenanceProviderHomePage({super.key});
@@ -23,45 +25,81 @@ class _MaintenanceProviderHomePageState
   void initState() {
     super.initState();
     _pages = [
-      _buildDashboard(),
-      BookingPage(), // BookingPage widget
-      const Center(child: Text('Inbox Page')), // Placeholder for Inbox
-      const Center(child: Text('Chat Page')), // Placeholder for Chat
-      ProfilePage(), // ProfilePage
+      _buildDashboard(), // Updated Dashboard with dynamic data
+      BookingPage(),
+      const Center(child: Text('Inbox Page')),
+      const MessagesPage(),
+      ProfilePage(),
     ];
   }
 
+  Future<Map<String, dynamic>> _fetchDashboardData() async {
+    try {
+      // Example Firestore collection and document path
+      final snapshot = await FirebaseFirestore.instance
+          .collection('dashboard')
+          .doc('maintenance_provider')
+          .get();
+
+      // Return data or fallback values
+      return snapshot.data() ?? {
+        'totalBookings': 0,
+        'servicesCompleted': 0,
+        'totalSales': 0.0,
+      };
+    } catch (e) {
+      // Handle errors gracefully and return fallback values
+      return {
+        'totalBookings': 0,
+        'servicesCompleted': 0,
+        'totalSales': 0.0,
+      };
+    }
+  }
+
   Widget _buildDashboard() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Dashboard',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _fetchDashboardData(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError || !snapshot.hasData) {
+          return const Center(child: Text('Failed to load dashboard data.'));
+        }
+
+        final data = snapshot.data!;
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Dashboard',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              _buildDashboardItem(
+                title: 'Total Bookings',
+                value: data['totalBookings'].toString(),
+                icon: Icons.calendar_today,
+                color: Colors.blue,
+              ),
+              _buildDashboardItem(
+                title: 'Services Completed',
+                value: data['servicesCompleted'].toString(),
+                icon: Icons.check_circle_outline,
+                color: Colors.green,
+              ),
+              _buildDashboardItem(
+                title: 'Total Sales',
+                value: '\$${data['totalSales'].toStringAsFixed(2)}',
+                icon: Icons.monetization_on,
+                color: Colors.orange,
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          _buildDashboardItem(
-            title: 'Total Bookings',
-            value: '120', // Replace with dynamic data
-            icon: Icons.calendar_today,
-            color: Colors.blue,
-          ),
-          _buildDashboardItem(
-            title: 'Services Completed',
-            value: '95', // Replace with dynamic data
-            icon: Icons.check_circle_outline,
-            color: Colors.green,
-          ),
-          _buildDashboardItem(
-            title: 'Total Sales',
-            value: '\$7,500', // Replace with dynamic data
-            icon: Icons.monetization_on,
-            color: Colors.orange,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
