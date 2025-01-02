@@ -9,7 +9,16 @@ class BookingPage extends StatelessWidget {
       // Get the bookings collection from Firestore
       final snapshot = await FirebaseFirestore.instance.collection('bookings').get();
       if (snapshot.docs.isEmpty) {
-        return [];
+        // Return dummy data if no bookings are found in Firestore
+        return [
+          {
+            'customerName': 'John Doe',
+            'service': 'Haircut',
+            'date': '2025-01-03',
+            'time': '10:00 AM',
+            'details': 'Looking for a quick trim.',
+          }
+        ];
       }
       // Parse the bookings into a list of maps
       return snapshot.docs.map((doc) {
