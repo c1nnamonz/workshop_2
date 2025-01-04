@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -10,8 +11,9 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final String _userId = "12345"; // Replace with dynamic user ID logic
+  String? _userId; // Dynamically set user ID from FirebaseAuth
 
   // Profile details
   String _name = "John Doe";
@@ -49,11 +51,31 @@ class _ProfilePageState extends State<ProfilePage> {
     _locationController = TextEditingController(text: _location);
     _availabilityController = TextEditingController(text: _availability);
 
+    // Initialize and load user data
+    _initializeUser();
+  }
+
+  Future<void> _initializeUser() async {
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      // Prompt user to log in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("User not logged in! Please log in.")),
+      );
+      return;
+    }
+
+    setState(() {
+      _userId = currentUser.uid;
+    });
+
     // Load profile data from Firestore
     _loadProfile();
   }
 
   void _loadProfile() async {
+    if (_userId == null) return;
+
     final DocumentSnapshot snapshot =
     await _firestore.collection("profiles").doc(_userId).get();
 
@@ -66,8 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _availability = data["availability"] ?? _availability;
         _rating = data["rating"]?.toDouble() ?? _rating;
         _profileImageUrl = data["profileImageUrl"];
-        _services = List<Map<String, String>>.from(
-            data["services"] ?? _services);
+        _services = List<Map<String, String>>.from(data["services"] ?? _services);
       });
 
       // Update controllers with the fetched data
@@ -79,6 +100,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _saveProfile() async {
+    if (_userId == null) return;
+
     final profileData = {
       "name": _nameController.text,
       "age": int.tryParse(_ageController.text) ?? _age,
@@ -101,29 +124,20 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  void _addService() {
+    setState(() {
+      _services.add({
+        "service": "",
+        "description": "",
+        "price": "",
+      });
+    });
+  }
 
-    if (pickedFile != null) {
-      final file = File(pickedFile.path);
-      final fileName = "$_userId-profile-picture.jpg";
-      try {
-        final ref = _storage.ref().child("profile_images/$fileName");
-        await ref.putFile(file);
-        final imageUrl = await ref.getDownloadURL();
-        setState(() {
-          _profileImageUrl = imageUrl;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profile picture updated successfully!")),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to upload image: $e")),
-        );
-      }
-    }
+  void _removeService(int index) {
+    setState(() {
+      _services.removeAt(index);
+    });
   }
 
   void _toggleEditing() {
@@ -154,7 +168,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             children: [
               GestureDetector(
-                onTap: _isEditing ? _pickAndUploadImage : null,
+                onTap: _isEditing ? () {} : null,
                 child: CircleAvatar(
                   radius: 60,
                   backgroundImage: _profileImageUrl != null
@@ -201,8 +215,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: ListTile(
                     title: _isEditing
                         ? TextField(
-                      decoration:
-                      const InputDecoration(labelText: "Service"),
+                      decoration: const InputDecoration(labelText: "Service"),
                       controller: TextEditingController(
                           text: service["service"]),
                       onChanged: (value) {
@@ -210,20 +223,49 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     )
                         : Text(service["service"] ?? ""),
-                    subtitle: _isEditing
-                        ? TextField(
-                      decoration:
-                      const InputDecoration(labelText: "Description"),
-                      controller: TextEditingController(
-                          text: service["description"]),
-                      onChanged: (value) {
-                        _services[index]["description"] = value;
-                      },
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _isEditing
+                            ? TextField(
+                          decoration: const InputDecoration(
+                              labelText: "Description"),
+                          controller: TextEditingController(
+                              text: service["description"]),
+                          onChanged: (value) {
+                            _services[index]["description"] = value;
+                          },
+                        )
+                            : Text(service["description"] ?? ""),
+                        const SizedBox(height: 5),
+                        _isEditing
+                            ? TextField(
+                          decoration:
+                          const InputDecoration(labelText: "Price"),
+                          controller: TextEditingController(
+                              text: service["price"]),
+                          onChanged: (value) {
+                            _services[index]["price"] = value;
+                          },
+                        )
+                            : Text("Price: ${service["price"] ?? ""}"),
+                      ],
+                    ),
+                    trailing: _isEditing
+                        ? IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _removeService(index),
                     )
-                        : Text(service["description"] ?? ""),
+                        : null,
                   ),
                 );
               }).toList(),
+              if (_isEditing)
+                ElevatedButton.icon(
+                  onPressed: _addService,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add Service"),
+                ),
               const Divider(),
             ],
           ),
@@ -231,8 +273,4 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-}
-
-class _storage {
-  static ref() {}
 }
