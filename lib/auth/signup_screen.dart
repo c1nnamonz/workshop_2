@@ -1,9 +1,12 @@
 import 'dart:developer';
+import 'package:geolocator/geolocator.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Make sure to import this for GeoPoint
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -23,6 +26,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _phoneController = TextEditingController();
 
   bool isMaintenanceProvider = false;
+  Position? _currentPosition;
+  LatLng? _selectedLocation;
 
   @override
   void dispose() {
@@ -35,6 +40,81 @@ class _SignupScreenState extends State<SignupScreen> {
     _lastNameController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserLocation();
+  }
+
+  // Function to get user's current location
+  Future<void> _getUserLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location services are disabled')),
+      );
+      return;
+    }
+
+    // Check and request location permission
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied')),
+        );
+        return;
+      }
+    }
+
+    // Get current position
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    setState(() {
+      _currentPosition = position;
+    });
+  }
+
+  void _openMapDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: _currentPosition != null
+                    ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                    : const LatLng(3.1390, 101.6869), // Default to KL if location is not available
+                zoom: 15,
+              ),
+              onTap: (LatLng location) {
+                setState(() {
+                  _selectedLocation = location;
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -162,17 +242,29 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 10),
 
                 // Certificate field for Maintenance Provider
-                if (isMaintenanceProvider)
+                if (isMaintenanceProvider) ...[
                   CustomTextField(
                     controller: _certificateController,
                     hint: 'Certification Number',
                     label: 'Certificate',
                   ),
-                if (isMaintenanceProvider) const SizedBox(height: 20),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: _openMapDialog,
+                    child: const Text('Set Location on Map'),
+                  ),
+                  if (_selectedLocation != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Selected Location: ${_selectedLocation!.latitude}, ${_selectedLocation!.longitude}',
+                        style: const TextStyle(color: Colors.black87),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 20),
 
                 // Sign Up button
-                // Inside the SignupScreen, customize the button size as desired
                 CustomButton(
                   textColor: Colors.white,
                   color: Colors.green,
@@ -181,7 +273,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   width: 140,  // Set a smaller width
                   height: 42,  // Set a smaller height
                 ),
-
 
                 const SizedBox(height: 10),
                 Row(
@@ -223,6 +314,11 @@ class _SignupScreenState extends State<SignupScreen> {
     final phoneNumber = _phoneController.text.trim();
     final certificate = isMaintenanceProvider ? _certificateController.text.trim() : null;
 
+    // Updated location logic
+    final location = _selectedLocation != null
+        ? GeoPoint(_selectedLocation!.latitude, _selectedLocation!.longitude)
+        : null;
+
     if (email.isEmpty ||
         username.isEmpty ||
         password.isEmpty ||
@@ -256,6 +352,7 @@ class _SignupScreenState extends State<SignupScreen> {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
+        location: location,
       );
       if (user != null) {
         Navigator.pushReplacement(
