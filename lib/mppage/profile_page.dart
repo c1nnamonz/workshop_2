@@ -18,6 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _userId;
   String? _profileImageUrl;
 
+  // Controllers for profile data
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
@@ -187,61 +188,54 @@ class _ProfilePageState extends State<ProfilePage> {
                 final index = entry.key;
                 final service = entry.value;
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "Service: ${service["service"] ?? ""}",
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        text: "Description: ",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.black),
-                        children: [
-                          TextSpan(
-                            text: service["description"] ?? "",
-                            style: const TextStyle(fontWeight: FontWeight.normal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        text: "Price: ",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.black),
-                        children: [
-                          TextSpan(
-                            text: service["price"] ?? "",
-                            style: const TextStyle(fontWeight: FontWeight.normal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        text: "Availability: ",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.black),
-                        children: [
-                          TextSpan(
-                            text: service["availability"] ?? "",
-                            style: const TextStyle(fontWeight: FontWeight.normal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(), // Line gap between each service
+                    _isEditing
+                        ? TextField(
+                      decoration: const InputDecoration(labelText: "Service Name"),
+                      controller:
+                      TextEditingController(text: service["service"]),
+                      onChanged: (value) {
+                        _services[index]["service"] = value;
+                      },
+                    )
+                        : Text("Service: ${service["service"] ?? ""}"),
+                    _isEditing
+                        ? TextField(
+                      decoration: const InputDecoration(labelText: "Description"),
+                      controller:
+                      TextEditingController(text: service["description"]),
+                      onChanged: (value) {
+                        _services[index]["description"] = value;
+                      },
+                    )
+                        : Text("Description: ${service["description"] ?? ""}"),
+                    _isEditing
+                        ? TextField(
+                      decoration: const InputDecoration(labelText: "Price"),
+                      controller:
+                      TextEditingController(text: service["price"]),
+                      onChanged: (value) {
+                        _services[index]["price"] = value;
+                      },
+                    )
+                        : Text("Price: ${service["price"] ?? ""}"),
+                    _isEditing
+                        ? TextField(
+                      decoration: const InputDecoration(labelText: "Availability"),
+                      controller:
+                      TextEditingController(text: service["availability"]),
+                      onChanged: (value) {
+                        _services[index]["availability"] = value;
+                      },
+                    )
+                        : Text("Availability: ${service["availability"] ?? ""}"),
+                    const SizedBox(height: 10),
                     if (_isEditing)
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _removeService(index),
                       ),
+                    const Divider(), // Line gap for readability
                   ],
                 );
               }).toList(),
