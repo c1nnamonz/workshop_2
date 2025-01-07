@@ -33,6 +33,7 @@ dependencies:
   google_maps_flutter: ^2.2.0
   flutter:
     sdk: flutter
+  permission_handler: ^11.0.0
 
 
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services_manager.dart'; // Import the ServicesManager file
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -22,18 +23,6 @@ class _ProfilePageState extends State<ProfilePage> {
   String _availability = "Monday - Friday, 9:00 AM - 6:00 PM";
   double _rating = 4.5;
   String? _profileImageUrl;
-  List<Map<String, String>> _services = [
-    {
-      "service": "Plumbing",
-      "description": "Fixing pipes, leaks, and other plumbing issues.",
-      "price": "RM150 - RM400"
-    },
-    {
-      "service": "Electrical",
-      "description": "Wiring, repairs, and electrical installations.",
-      "price": "RM200 - RM500"
-    },
-  ];
 
   // Controllers for editing fields
   late TextEditingController _nameController;
@@ -42,6 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _availabilityController;
 
   bool _isEditing = false;
+  File? _imageFile;
 
   @override
   void initState() {
@@ -73,12 +63,10 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
   }
 
-  void _loadProfile() async {
+  Future<void> _loadProfile() async {
     if (_userId == null) return;
 
-    final DocumentSnapshot snapshot =
-    await _firestore.collection("profiles").doc(_userId).get();
-
+    final snapshot = await _firestore.collection("profiles").doc(_userId).get();
     if (snapshot.exists) {
       final data = snapshot.data() as Map<String, dynamic>;
       setState(() {
@@ -88,10 +76,8 @@ class _ProfilePageState extends State<ProfilePage> {
         _availability = data["availability"] ?? _availability;
         _rating = data["rating"]?.toDouble() ?? _rating;
         _profileImageUrl = data["profileImageUrl"];
-        _services = List<Map<String, String>>.from(data["services"] ?? _services);
       });
 
-      // Update controllers with the fetched data
       _nameController.text = _name;
       _ageController.text = _age.toString();
       _locationController.text = _location;
@@ -99,7 +85,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _saveProfile() async {
+  Future<void> _saveProfile() async {
     if (_userId == null) return;
 
     final profileData = {
@@ -109,7 +95,6 @@ class _ProfilePageState extends State<ProfilePage> {
       "availability": _availabilityController.text,
       "rating": _rating,
       "profileImageUrl": _profileImageUrl,
-      "services": _services,
     };
 
     try {
@@ -124,20 +109,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _addService() {
-    setState(() {
-      _services.add({
-        "service": "",
-        "description": "",
-        "price": "",
-      });
-    });
-  }
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile =
+    await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
 
-  void _removeService(int index) {
-    setState(() {
-      _services.removeAt(index);
-    });
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+      // Upload logic here if needed
+    }
   }
 
   void _toggleEditing() {
@@ -206,67 +188,25 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 20),
               const Divider(),
-              const Text("Services Offered",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ..._services.asMap().entries.map((entry) {
-                final index = entry.key;
-                final service = entry.value;
-                return Card(
-                  child: ListTile(
-                    title: _isEditing
-                        ? TextField(
-                      decoration: const InputDecoration(labelText: "Service"),
-                      controller: TextEditingController(
-                          text: service["service"]),
-                      onChanged: (value) {
-                        _services[index]["service"] = value;
-                      },
-                    )
-                        : Text(service["service"] ?? ""),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _isEditing
-                            ? TextField(
-                          decoration: const InputDecoration(
-                              labelText: "Description"),
-                          controller: TextEditingController(
-                              text: service["description"]),
-                          onChanged: (value) {
-                            _services[index]["description"] = value;
-                          },
-                        )
-                            : Text(service["description"] ?? ""),
-                        const SizedBox(height: 5),
-                        _isEditing
-                            ? TextField(
-                          decoration:
-                          const InputDecoration(labelText: "Price"),
-                          controller: TextEditingController(
-                              text: service["price"]),
-                          onChanged: (value) {
-                            _services[index]["price"] = value;
-                          },
-                        )
-                            : Text("Price: ${service["price"] ?? ""}"),
-                      ],
+              // BUTTON TO NAVIGATE TO SERVICES MANAGER
+              ElevatedButton(
+                onPressed: () {
+                  // Navigate to ServicesManager when this button is pressed
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ServicesManager(), // Navigate to ServicesManager page
                     ),
-                    trailing: _isEditing
-                        ? IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _removeService(index),
-                    )
-                        : null,
-                  ),
-                );
-              }).toList(),
-              if (_isEditing)
-                ElevatedButton.icon(
-                  onPressed: _addService,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Add Service"),
+                  );
+                },
+                child: const Text("Manage Services"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue, // Set button color to blue
+                  foregroundColor: Colors.white, // Set text color to white
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Adjust padding
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Text style
                 ),
-              const Divider(),
+              ),
             ],
           ),
         ),

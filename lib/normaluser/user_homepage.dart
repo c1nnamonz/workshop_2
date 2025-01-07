@@ -4,6 +4,7 @@ import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
+import 'booking_form.dart';
 import 'chatbot.dart';
 import 'viewService.dart';
 import 'bookings.dart';
@@ -11,6 +12,19 @@ import 'inbox.dart';
 import 'profile.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+Future<void> requestLocationPermission() async {
+  var status = await Permission.location.request();
+  if (status.isGranted) {
+    print("Location permission granted.");
+  } else if (status.isDenied) {
+    print("Location permission denied.");
+  } else if (status.isPermanentlyDenied) {
+    print("Location permission permanently denied. Open app settings.");
+  }
+}
+
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -114,44 +128,66 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Future<void> _getUserLocation() async {
     try {
+      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
-          _currentLocation = 'Location services are disabled.';
+          _currentLocation = 'Please enable location services.';
         });
         return;
       }
 
+      // Check location permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.deniedForever) {
+          setState(() {
+            _currentLocation = 'Location permissions are permanently denied. Please enable them in settings.';
+          });
+          return;
+        }
         if (permission == LocationPermission.denied) {
           setState(() {
-            _currentLocation = 'Location permission denied';
+            _currentLocation = 'Location permission denied.';
           });
           return;
         }
       }
 
+      // Fetch the current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
+      // Update the location state
       setState(() {
         _currentLocation =
         '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
       });
 
-      mapController.moveCamera(CameraUpdate.newLatLng(
-        LatLng(position.latitude, position.longitude),
-      ));
-
+      // Update the map's camera position
+      if (mapController != null) {
+        mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(position.latitude, position.longitude),
+            15, // Adjust the zoom level (can be dynamic)
+          ),
+        );
+      } else {
+        setState(() {
+          _currentLocation = 'Map controller is not initialized.';
+        });
+      }
     } catch (e) {
+      // Handle exceptions
       setState(() {
-        _currentLocation = 'Failed to get location: $e';
+        _currentLocation = 'Failed to get location. Please try again.';
       });
+      print('Error getting location: $e');
     }
   }
+
 
   @override
   void initState() {
@@ -197,23 +233,21 @@ class _HomePageContentState extends State<HomePageContent> {
     return _showMore ? categories : categories.take(8).toList();
   }
 
-  // **Fetching services from Firestore**
   Future<List<Map<String, String>>> _fetchServices() async {
     List<Map<String, String>> serviceList = [];
     try {
-      // Fetch services from Firestore based on the profiles collection and user ID
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('profiles') // Firestore collection name
+          .collection('profiles')
           .get();
 
       for (var doc in querySnapshot.docs) {
         String userId = doc.id;
         List<Map<String, String>> services = [];
 
-        // Iterate through services within each user document
         List<dynamic> servicesData = doc['services'] ?? [];
         for (var serviceData in servicesData) {
           services.add({
+            'providerId': userId,
             'provider': doc['name'] ?? 'Unknown Provider',
             'service': serviceData['service'] ?? 'Unknown Service',
             'price': serviceData['price'] ?? 'Unknown Price',
@@ -262,20 +296,80 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     return serviceList.map((service) {
-      // Get the image path for the service
       String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
 
-      return ServiceCard(
-        providerName: service['provider']!,
-        serviceType: service['service']!,
-        serviceName: service['service']!,
-        rangePrice: service['price']!,
-        rating: double.parse(service['rating']!),
-        location: service['location']!,
-        imagePath: imagePath, // Pass the image path to the ServiceCard
+
+      return GestureDetector(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.network(
+                      service['image']!,
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.cover,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      service['service']!,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(service['provider']!, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Price: ${service['price']!}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Rating: ${service['rating']!}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Location: ${service['location']!}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            // Navigate to the booking form
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => BookingForm(providerId: '', serviceName: '',)),
+                            );
+                          },
+                          child: const Text('Book Now'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {}, // Dummy button for Chat
+                          child: const Text('Chat'),
+                        ),
+                      ],
+                    ),
+
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        child: ServiceCard(
+          providerName: service['provider']!,
+          serviceType: service['service']!,
+          serviceName: service['service']!,
+          rangePrice: service['price']!,
+          rating: double.parse(service['rating']!),
+          location: service['location']!,
+          imagePath: imagePath, providerId: '',
+        ),
       );
     }).toList();
   }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, String>>>(
@@ -400,7 +494,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   height: 250,
                   child: GoogleMap(
                     initialCameraPosition: const CameraPosition(
-                      target: LatLng(0.0, 0.0),
+                      target: LatLng(3.1390, 101.6869), // Example: Kuala Lumpur's coordinates
                       zoom: 10,
                     ),
                     onMapCreated: (GoogleMapController controller) {
