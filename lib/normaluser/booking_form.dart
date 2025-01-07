@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart'; // For geolocation
 import 'package:google_maps_flutter/google_maps_flutter.dart'; // For Google Maps
-import 'package:firebase_auth/firebase_auth.dart';
 import '../auth/firebase_utils.dart'; // Import the utility function
 
 class BookingForm extends StatefulWidget {
