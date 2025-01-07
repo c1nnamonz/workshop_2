@@ -43,14 +43,23 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _loadServices() async {
     if (_userId == null) return;
 
-    final snapshot = await _firestore.collection("profiles").doc(_userId).get();
-    if (snapshot.exists) {
-      final data = snapshot.data() as Map<String, dynamic>;
-      setState(() {
-        _services = List<Map<String, String>>.from(data["services"] ?? []);
-      });
-    }
+    // Query Firestore to get services where userId is the owner of the service
+    final snapshot = await _firestore
+        .collection("services")
+        .where("userId", isEqualTo: _userId)
+        .get();
+
+    setState(() {
+      _services = snapshot.docs.map((doc) {
+        return {
+          "service": doc["service"]?.toString() ?? "",
+          "description": doc["description"]?.toString() ?? "",
+          "price": doc["price"]?.toString() ?? "",
+        };
+      }).toList();
+    });
   }
+
 
   // Add a new service to the list
   void _addService() {
@@ -74,14 +83,19 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _saveServices() async {
     if (_userId == null) return;
 
-    final profileData = {
-      "services": _services,
-    };
-
     try {
-      await _firestore.collection("profiles").doc(_userId).update(profileData);
+      // Save each service as a separate document in Firestore
+      for (var service in _services) {
+        await _firestore.collection("services").add({
+          "userId": _userId,
+          "service": service["service"],
+          "description": service["description"],
+          "price": service["price"],
+        });
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Services updated successfully!")),
+        const SnackBar(content: Text("Services saved successfully!")),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

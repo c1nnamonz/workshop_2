@@ -1,34 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'services_manager.dart'; // Import the ServicesManager file
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
-class ProfilePage extends StatefulWidget {
+import 'package:projects/mppage/services_manager.dart';
+import 'package:projects/mppage/mp_editProfile.dart'; // Import your new mp_editProfile.dart
+
+class MaintenanceProviderProfilePage extends StatefulWidget {
   @override
-  _ProfilePageState createState() => _ProfilePageState();
+  _MaintenanceProviderProfilePageState createState() =>
+      _MaintenanceProviderProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _MaintenanceProviderProfilePageState
+    extends State<MaintenanceProviderProfilePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String? _userId; // Dynamically set user ID from FirebaseAuth
 
   // Profile details
-  String _name = "John Doe";
-  int _age = 30;
+  String _companyName = "ABC Maintenance";
+  String _ownerName = "John Doe";
+  String _operatingHours = "Mon - Fri: 9 AM - 6 PM";
   String _location = "Kuala Lumpur, Malaysia";
-  String _availability = "Monday - Friday, 9:00 AM - 6:00 PM";
   double _rating = 4.5;
   String? _profileImageUrl;
 
   // Controllers for editing fields
-  late TextEditingController _nameController;
-  late TextEditingController _ageController;
+  late TextEditingController _companyNameController;
+  late TextEditingController _ownerNameController;
+  late TextEditingController _operatingHoursController;
   late TextEditingController _locationController;
-  late TextEditingController _availabilityController;
 
   bool _isEditing = false;
   File? _imageFile;
@@ -36,10 +40,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: _name);
-    _ageController = TextEditingController(text: _age.toString());
+    _companyNameController = TextEditingController(text: _companyName);
+    _ownerNameController = TextEditingController(text: _ownerName);
+    _operatingHoursController = TextEditingController(text: _operatingHours);
     _locationController = TextEditingController(text: _location);
-    _availabilityController = TextEditingController(text: _availability);
 
     // Initialize and load user data
     _initializeUser();
@@ -70,18 +74,18 @@ class _ProfilePageState extends State<ProfilePage> {
     if (snapshot.exists) {
       final data = snapshot.data() as Map<String, dynamic>;
       setState(() {
-        _name = data["name"] ?? _name;
-        _age = data["age"] ?? _age;
+        _companyName = data["companyName"] ?? _companyName;
+        _ownerName = data["ownerName"] ?? _ownerName;
+        _operatingHours = data["operatingHours"] ?? _operatingHours;
         _location = data["location"] ?? _location;
-        _availability = data["availability"] ?? _availability;
         _rating = data["rating"]?.toDouble() ?? _rating;
         _profileImageUrl = data["profileImageUrl"];
       });
 
-      _nameController.text = _name;
-      _ageController.text = _age.toString();
+      _companyNameController.text = _companyName;
+      _ownerNameController.text = _ownerName;
+      _operatingHoursController.text = _operatingHours;
       _locationController.text = _location;
-      _availabilityController.text = _availability;
     }
   }
 
@@ -89,16 +93,16 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_userId == null) return;
 
     final profileData = {
-      "name": _nameController.text,
-      "age": int.tryParse(_ageController.text) ?? _age,
+      "companyName": _companyNameController.text,
+      "ownerName": _ownerNameController.text,
+      "operatingHours": _operatingHoursController.text,
       "location": _locationController.text,
-      "availability": _availabilityController.text,
       "rating": _rating,
       "profileImageUrl": _profileImageUrl,
     };
 
     try {
-      await _firestore.collection("profiles").doc(_userId).set(profileData);
+      await _firestore.collection("profiles").doc(_userId).set(profileData, SetOptions(merge: true));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Profile updated successfully!")),
       );
@@ -122,27 +126,40 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _toggleEditing() {
-    setState(() {
-      if (_isEditing) {
-        // Save profile when exiting edit mode
-        _saveProfile();
-      }
-      _isEditing = !_isEditing;
-    });
+  void _navigateToEditProfile() {
+    // Navigate to EditMaintenanceProfilePage for editing the profile
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            EditMaintenanceProfilePage(
+              companyName: _companyName,
+              ownerName: _ownerName,
+              operatingHours: _operatingHours,
+              location: _location,
+              profileImageUrl: "",  // Pass an empty string for profileImageUrl
+              onSave: (companyName, ownerName, operatingHours, location, profileImageUrl) {
+                setState(() {
+                  _companyName = companyName;
+                  _ownerName = ownerName;
+                  _operatingHours = operatingHours;
+                  _location = location;
+                  _profileImageUrl = profileImageUrl; // Update the profile image URL if provided
+                });
+                _saveProfile();  // Save to Firestore after editing
+              },
+            )
+
+        ,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Profile Page"),
-        actions: [
-          IconButton(
-            icon: Icon(_isEditing ? Icons.save : Icons.edit),
-            onPressed: _toggleEditing,
-          )
-        ],
+        automaticallyImplyLeading: false, // Remove back button
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -163,16 +180,21 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 20),
               TextField(
-                controller: _nameController,
+                controller: _companyNameController,
                 enabled: _isEditing,
-                decoration: const InputDecoration(labelText: "Name"),
+                decoration: const InputDecoration(labelText: "Company Name"),
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: _ageController,
+                controller: _ownerNameController,
                 enabled: _isEditing,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "Age"),
+                decoration: const InputDecoration(labelText: "Owner Name"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _operatingHoursController,
+                enabled: _isEditing,
+                decoration: const InputDecoration(labelText: "Operating Hours"),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -180,32 +202,55 @@ class _ProfilePageState extends State<ProfilePage> {
                 enabled: _isEditing,
                 decoration: const InputDecoration(labelText: "Location"),
               ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _availabilityController,
-                enabled: _isEditing,
-                decoration: const InputDecoration(labelText: "Availability"),
-              ),
               const SizedBox(height: 20),
               const Divider(),
-              // BUTTON TO NAVIGATE TO SERVICES MANAGER
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to ServicesManager when this button is pressed
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ServicesManager(), // Navigate to ServicesManager page
+              // BUTTONS
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons stretch across
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to ServicesManager
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ServicesManager(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14, // Increase vertical padding for better spacing
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  );
-                },
-                child: const Text("Manage Services"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Set button color to blue
-                  foregroundColor: Colors.white, // Set text color to white
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Adjust padding
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Text style
-                ),
+                    child: const Text("Manage Services"),
+                  ),
+                  const SizedBox(height: 16), // Add space between buttons
+
+                  ElevatedButton(
+                    onPressed: _navigateToEditProfile, // Navigate to Edit Profile page
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14, // Increase vertical padding
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      "Edit Profile",
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
