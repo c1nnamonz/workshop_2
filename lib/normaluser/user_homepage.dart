@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
@@ -236,28 +237,28 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<List<Map<String, String>>> _fetchServices() async {
     List<Map<String, String>> serviceList = [];
     try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('profiles')
+      QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
+          .collection('services')
           .get();
 
-      for (var doc in querySnapshot.docs) {
-        String userId = doc.id;
-        List<Map<String, String>> services = [];
+      for (var serviceDoc in serviceSnapshot.docs) {
+        String userId = serviceDoc['userId'];
 
-        List<dynamic> servicesData = doc['services'] ?? [];
-        for (var serviceData in servicesData) {
-          services.add({
-            'providerId': userId,
-            'provider': doc['name'] ?? 'Unknown Provider',
-            'service': serviceData['service'] ?? 'Unknown Service',
-            'price': serviceData['price'] ?? 'Unknown Price',
-            'rating': doc['rating']?.toString() ?? '0',
-            'location': doc['location'] ?? 'Unknown Location',
-            'image': doc['profileImageUrl'] ?? '',
+        // Fetch user details based on userId
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          serviceList.add({
+            'description': serviceDoc['description'] ?? 'Unknown Description',
+            'price': serviceDoc['price'] ?? 'Unknown Price',
+            'service': serviceDoc['service'] ?? 'Unknown Service',
+            'companyName': userDoc['companyName'] ?? 'Unknown Company',
+            'location': userDoc['location'] ?? 'Unknown Location',
           });
         }
-
-        serviceList.addAll(services);
       }
     } catch (e) {
       print("Error fetching services: $e");
@@ -265,6 +266,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     return serviceList;
   }
+
 
   List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
     if (selectedCategory != null && selectedCategory != 'All') {
@@ -298,9 +300,9 @@ class _HomePageContentState extends State<HomePageContent> {
     return serviceList.map((service) {
       String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
 
-
       return GestureDetector(
         onTap: () {
+          // Dialog showing service details
           showDialog(
             context: context,
             builder: (BuildContext context) {
@@ -311,46 +313,47 @@ class _HomePageContentState extends State<HomePageContent> {
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.network(
-                      service['image']!,
+                    Image.asset(
+                      imagePath, // Use the preset image path here
                       height: 100,
                       width: 100,
                       fit: BoxFit.cover,
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      service['service']!,
+                      service['service'] ?? 'Unknown Service',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 5),
-                    Text(service['provider']!, style: const TextStyle(fontSize: 16)),
+                    Text('Price: ${service['price'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
-                    Text('Price: ${service['price']!}', style: const TextStyle(fontSize: 16)),
+                    Text('Rating: ${service['rating'] ?? '0'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
-                    Text('Rating: ${service['rating']!}', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 5),
-                    Text('Location: ${service['location']!}', style: const TextStyle(fontSize: 16)),
+                    Text('Location: ${service['location'] ?? 'Unknown Location'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         ElevatedButton(
                           onPressed: () {
-                            // Navigate to the booking form
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => BookingForm(providerId: '', serviceName: '',)),
+                              MaterialPageRoute(
+                                builder: (context) => BookingForm(
+                                  providerId: service['providerId'] ?? '',
+                                  serviceName: service['service'] ?? '',
+                                ),
+                              ),
                             );
                           },
                           child: const Text('Book Now'),
                         ),
                         ElevatedButton(
-                          onPressed: () {}, // Dummy button for Chat
+                          onPressed: () {},
                           child: const Text('Chat'),
                         ),
                       ],
                     ),
-
                   ],
                 ),
               );
@@ -358,14 +361,15 @@ class _HomePageContentState extends State<HomePageContent> {
           );
         },
         child: ServiceCard(
-          providerName: service['provider']!,
-          serviceType: service['service']!,
-          serviceName: service['service']!,
-          rangePrice: service['price']!,
-          rating: double.parse(service['rating']!),
-          location: service['location']!,
-          imagePath: imagePath, providerId: '',
+          serviceType: service['service'] ?? 'Unknown Type',
+          serviceName: service['service'] ?? 'Unknown Service',
+          rangePrice: service['price'] ?? 'N/A',
+          rating: double.tryParse(service['rating'] ?? '0') ?? 0.0,
+          location: service['location'] ?? 'Unknown Location',
+          companyName: service['companyName'] ?? 'Unknown Company',
+          providerId: service['providerId'] ?? '',
         ),
+
       );
     }).toList();
   }
