@@ -8,6 +8,7 @@ class ServiceCard extends StatelessWidget {
   final String location;
   final String companyName;
   final String providerId;
+  final String imagePath; // Add imagePath field
 
   ServiceCard({
     required this.serviceType,
@@ -17,6 +18,7 @@ class ServiceCard extends StatelessWidget {
     required this.location,
     required this.companyName,
     required this.providerId,
+    required this.imagePath, // Include the image path in constructor
   });
 
   @override
@@ -30,8 +32,13 @@ class ServiceCard extends StatelessWidget {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            // Removed image, just leaving space
-            SizedBox(width: 80, height: 80), // Empty space for alignment
+            // Image section - Display service icon/image
+            Image.asset(
+              imagePath,
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
             const SizedBox(width: 15),
             // Service Details
             Expanded(
