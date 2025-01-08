@@ -24,6 +24,7 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _initializeUser() async {
     User? currentUser = _auth.currentUser;
     if (currentUser == null) {
+      // Prompt user to log in
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("User not logged in! Please log in.")),
       );
@@ -34,6 +35,7 @@ class _ServicesManagerState extends State<ServicesManager> {
       _userId = currentUser.uid;
     });
 
+    // Load services data from Firestore
     _loadServices();
   }
 
@@ -41,6 +43,7 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _loadServices() async {
     if (_userId == null) return;
 
+    // Query Firestore to get services where userId is the owner of the service
     final snapshot = await _firestore
         .collection("services")
         .where("userId", isEqualTo: _userId)
@@ -49,7 +52,6 @@ class _ServicesManagerState extends State<ServicesManager> {
     setState(() {
       _services = snapshot.docs.map((doc) {
         return {
-          "id": doc.id,  // Store Firestore document ID
           "service": doc["service"]?.toString() ?? "",
           "description": doc["description"]?.toString() ?? "",
           "price": doc["price"]?.toString() ?? "",
@@ -58,12 +60,12 @@ class _ServicesManagerState extends State<ServicesManager> {
     });
   }
 
+
   // Add a new service to the list
   void _addService() {
     setState(() {
       _services.add({
-        "id": "",  // New service will not have an ID initially
-        "service": "Electrical", // Default to "Electrical"
+        "service": "",
         "description": "",
         "price": "",
       });
@@ -71,13 +73,7 @@ class _ServicesManagerState extends State<ServicesManager> {
   }
 
   // Remove a service from the list
-  Future<void> _removeService(int index) async {
-    final service = _services[index];
-    if (service["id"]?.isNotEmpty == true) {
-      // Remove from Firestore if service has an ID
-      await _firestore.collection("services").doc(service["id"]).delete();
-    }
-
+  void _removeService(int index) {
     setState(() {
       _services.removeAt(index);
     });
@@ -88,24 +84,14 @@ class _ServicesManagerState extends State<ServicesManager> {
     if (_userId == null) return;
 
     try {
+      // Save each service as a separate document in Firestore
       for (var service in _services) {
-        if (service["id"]?.isEmpty == true) {
-          // Add new service to Firestore
-          final docRef = await _firestore.collection("services").add({
-            "userId": _userId,
-            "service": service["service"],
-            "description": service["description"],
-            "price": service["price"],
-          });
-          service["id"] = docRef.id;  // Update ID for newly added service
-        } else {
-          // Update existing service in Firestore
-          await _firestore.collection("services").doc(service["id"]).update({
-            "service": service["service"],
-            "description": service["description"],
-            "price": service["price"],
-          });
-        }
+        await _firestore.collection("services").add({
+          "userId": _userId,
+          "service": service["service"],
+          "description": service["description"],
+          "price": service["price"],
+        });
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -134,69 +120,18 @@ class _ServicesManagerState extends State<ServicesManager> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
+              // Display services
               ..._services.asMap().entries.map((entry) {
                 final index = entry.key;
                 final service = entry.value;
 
                 return Card(
                   child: ListTile(
-                    title: DropdownButtonFormField<String>(
-                      value: service["service"],
-                      items: const [
-                        DropdownMenuItem(
-                          value: "Electrical",
-                          child: Text("Electrical"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Plumbing",
-                          child: Text("Plumbing"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Air-cond",
-                          child: Text("Air-cond"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Cleaning",
-                          child: Text("Cleaning"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Renovation",
-                          child: Text("Renovation"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Security",
-                          child: Text("Security"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Landscaping",
-                          child: Text("Landscaping"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Pest Control",
-                          child: Text("Pest Control"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Appliance Repair",
-                          child: Text("Appliance Repair"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Furniture Assembly",
-                          child: Text("Furniture Assembly"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Smart Home Installation",
-                          child: Text("Smart Home Installation"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Pool Maintenance",
-                          child: Text("Pool Maintenance"),
-                        ),
-                      ],
+                    title: TextField(
+                      controller: TextEditingController(text: service["service"]),
                       decoration: const InputDecoration(labelText: "Service"),
                       onChanged: (value) {
-                        setState(() {
-                          _services[index]["service"] = value ?? "";
-                        });
+                        _services[index]["service"] = value;
                       },
                     ),
                     subtitle: Column(
@@ -237,8 +172,8 @@ class _ServicesManagerState extends State<ServicesManager> {
                 onPressed: _saveServices,
                 child: const Text("Save Services"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue, // Set button color to blue
+                  foregroundColor: Colors.white, // Set text color to white
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),

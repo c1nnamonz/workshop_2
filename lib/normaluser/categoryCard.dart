@@ -7,7 +7,7 @@ class CategoryCard extends StatelessWidget {
   const CategoryCard({
     required this.image,
     required this.category,
-    Key? key,
+    Key? key, required String categoryName,
   }) : super(key: key);
 
   @override
@@ -32,3 +32,4 @@ class CategoryCard extends StatelessWidget {
     );
   }
 }
+

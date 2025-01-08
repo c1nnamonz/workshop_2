@@ -257,6 +257,7 @@ class _HomePageContentState extends State<HomePageContent> {
             'service': serviceDoc['service'] ?? 'Unknown Service',
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
+            'providerId': userId, // Include providerId for later use
           });
         }
       }
@@ -269,19 +270,22 @@ class _HomePageContentState extends State<HomePageContent> {
 
 
   List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
+    // Filter services based on selected category
     if (selectedCategory != null && selectedCategory != 'All') {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
       }).toList();
     }
 
+    // Filter services based on search query
     if (_searchQuery.isNotEmpty) {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
+    // Display a message if no services are available
     if (serviceList.isEmpty) {
       return [
         const Padding(
@@ -297,12 +301,13 @@ class _HomePageContentState extends State<HomePageContent> {
       ];
     }
 
+    // Map service data to service cards
     return serviceList.map((service) {
       String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
 
       return GestureDetector(
         onTap: () {
-          // Dialog showing service details
+          // Display service details in a dialog
           showDialog(
             context: context,
             builder: (BuildContext context) {
@@ -314,7 +319,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
-                      imagePath, // Use the preset image path here
+                      imagePath,
                       height: 100,
                       width: 100,
                       fit: BoxFit.cover,
@@ -327,7 +332,9 @@ class _HomePageContentState extends State<HomePageContent> {
                     const SizedBox(height: 5),
                     Text('Price: ${service['price'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
-                    Text('Rating: ${service['rating'] ?? '0'}', style: const TextStyle(fontSize: 16)),
+                    Text('Description: ${service['description'] ?? 'No Description'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Company: ${service['companyName'] ?? 'Unknown Company'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
                     Text('Location: ${service['location'] ?? 'Unknown Location'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 20),
@@ -342,6 +349,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                 builder: (context) => BookingForm(
                                   providerId: service['providerId'] ?? '',
                                   serviceName: service['service'] ?? '',
+                                  price: service['price'] ?? '',
+                                  description: service['description'] ?? '',
+                                  companyName: service['companyName'] ?? '',
+                                  location: service['location'] ?? '',
                                 ),
                               ),
                             );
@@ -349,7 +360,9 @@ class _HomePageContentState extends State<HomePageContent> {
                           child: const Text('Book Now'),
                         ),
                         ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            // Add chat functionality
+                          },
                           child: const Text('Chat'),
                         ),
                       ],
@@ -369,10 +382,10 @@ class _HomePageContentState extends State<HomePageContent> {
           companyName: service['companyName'] ?? 'Unknown Company',
           providerId: service['providerId'] ?? '',
         ),
-
       );
     }).toList();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -446,7 +459,7 @@ class _HomePageContentState extends State<HomePageContent> {
                             height: 40,
                             fit: BoxFit.cover,
                           ),
-                          category: category,
+                          category: category, categoryName: '',
                         ),
                       ),
                     );

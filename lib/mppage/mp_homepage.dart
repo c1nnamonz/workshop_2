@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
-import 'package:projects/mppage/profile_page.dart';
-import 'package:projects/widgets/BookingPage.dart'; // Ensure this file exists
+import 'package:projects/mppage/profile_page.dart'; // Adjust path if necessary
+import 'package:projects/widgets/BookingPage.dart';
 
 class MaintenanceProviderHomePage extends StatefulWidget {
   const MaintenanceProviderHomePage({super.key});
@@ -27,9 +27,10 @@ class _MaintenanceProviderHomePageState
       BookingPage(), // BookingPage widget
       const Center(child: Text('Inbox Page')), // Placeholder for Inbox
       const Center(child: Text('Chat Page')), // Placeholder for Chat
-      ProfilePage(), // ProfilePage widget
+      MaintenanceProviderProfilePage(), // Correct reference to ProfilePage widget
     ];
   }
+
 
   Widget _buildDashboard() {
     return Padding(
