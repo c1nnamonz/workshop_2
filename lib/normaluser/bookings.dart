@@ -1,16 +1,20 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../auth/firebase_utils.dart';
 
 class BookingCard extends StatelessWidget {
-  final String serviceName;
+  final String companyName; // Changed from serviceName to companyName
   final String problemDescription;
   final String scheduleOrCompletion;
   final String? rating; // Optional for "Completed" tab
   final String? price; // Optional for "Completed" tab
   final IconData icon; // New parameter for the icon
-  final Color? iconColor; // Optional for the icon color
+  final Color? iconColor; // Optional for custom icon color
 
   BookingCard({
-    required this.serviceName,
+    required this.companyName, // Changed here
     required this.problemDescription,
     required this.scheduleOrCompletion,
     this.rating,
@@ -28,13 +32,13 @@ class BookingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Row for icon and service name
+            // Row for icon and company name
             Row(
               children: [
                 Icon(icon, size: 30, color: iconColor ?? Colors.blue),
                 const SizedBox(width: 10), // Space between icon and text
                 Text(
-                  serviceName,
+                  companyName, // Updated here
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -79,31 +83,28 @@ class BookingsPage extends StatelessWidget {
     // Dummy data for the "Booked" tab
     final bookedServices = [
       {
-        'serviceName': "HomeFix Repairs",
+        'companyName': "HomeFix Repairs", // Changed here
         'problemDescription': "Air-conditioner servicing",
         'schedule': "Scheduled on: 2024-12-22, 11:00 AM",
       },
       {
-        'serviceName': "Sparkle Cleaners",
+        'companyName': "Sparkle Cleaners", // Changed here
         'problemDescription': "Kitchen deep cleaning",
         'schedule': "Scheduled on: 2024-12-23, 9:00 AM",
       },
     ];
 
-    // Dummy data for the "Pending" tab
-    final pendingServices = [];
-
     // Dummy data for the "Completed" tab
     final completedServices = [
       {
-        'serviceName': "John's Plumbing",
+        'companyName': "John's Plumbing", // Changed here
         'problemDescription': "Pipe leaking",
         'rating': "⭐⭐⭐⭐",
         'completionDate': "Completed on: 2024-12-20, 3:00 PM",
         'price': "RM57",
       },
       {
-        'serviceName': "CleanPro Cleaning",
+        'companyName': "CleanPro Cleaning", // Changed here
         'problemDescription': "Full home cleaning",
         'rating': "⭐⭐⭐⭐⭐",
         'completionDate': "Completed on: 2024-12-18, 10:00 AM",
@@ -114,7 +115,7 @@ class BookingsPage extends StatelessWidget {
     // Dummy data for canceled services
     final canceledServices = [
       {
-        'serviceName': "QuickFix Electrical",
+        'companyName': "QuickFix Electrical", // Changed here
         'problemDescription': "Wiring installation canceled",
         'completionDate': "Canceled on: 2024-12-19, 12:00 PM",
       },
@@ -176,7 +177,7 @@ class BookingsPage extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final service = bookedServices[index];
                       return BookingCard(
-                        serviceName: service['serviceName']!,
+                        companyName: service['companyName']!, // Changed here
                         problemDescription: service['problemDescription']!,
                         scheduleOrCompletion: service['schedule']!,
                         icon: Icons.calendar_today, // Scheduled icon for Booked tab
@@ -185,28 +186,45 @@ class BookingsPage extends StatelessWidget {
                   )
                       : const Center(child: Text('No Booked Services')),
 
-                  // 'Pending' tab
-                  pendingServices.isNotEmpty
-                      ? ListView.builder(
-                    itemCount: pendingServices.length,
-                    itemBuilder: (context, index) {
-                      final service = pendingServices[index];
-                      return BookingCard(
-                        serviceName: service['serviceName']!,
-                        problemDescription: service['problemDescription']!,
-                        scheduleOrCompletion: service['schedule']!,
-                        icon: Icons.build, // Ongoing icon for Pending tab
+                  // 'Pending' tab (Fetching from Firestore)
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Pending') // Filter for pending bookings
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid) // Using FirebaseAuth to get the current user's UID
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Pending Services'));
+                      }
+                      final pendingServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: pendingServices.length,
+                        itemBuilder: (context, index) {
+                          final service = pendingServices[index];
+                          return BookingCard(
+                            companyName: service['companyName'], // Display company name
+                            problemDescription: service['description'], // Display the service description
+                            scheduleOrCompletion: 'Created on: ${service['createdAt'].toDate()}', // Show creation date
+                            icon: Icons.build, // Icon for Pending tab
+                          );
+                        },
                       );
                     },
-                  )
-                      : const Center(child: Text('No Pending Services')),
+                  ),
+
+
 
                   // 'Completed' tab
                   completedServices.isNotEmpty || canceledServices.isNotEmpty
                       ? ListView(
                     children: [
                       ...completedServices.map((service) => BookingCard(
-                        serviceName: service['serviceName']!,
+                        companyName: service['companyName']!, // Changed here
                         problemDescription: service['problemDescription']!,
                         scheduleOrCompletion: service['completionDate']!,
                         rating: service['rating'],
@@ -214,7 +232,7 @@ class BookingsPage extends StatelessWidget {
                         icon: Icons.check_circle, // Checked icon for Completed tab
                       )),
                       ...canceledServices.map((service) => BookingCard(
-                        serviceName: service['serviceName']!,
+                        companyName: service['companyName']!, // Changed here
                         problemDescription: service['problemDescription']!,
                         scheduleOrCompletion: service['completionDate']!,
                         icon: Icons.error, // Exclamation icon for canceled services

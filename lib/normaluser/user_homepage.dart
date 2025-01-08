@@ -255,6 +255,7 @@ class _HomePageContentState extends State<HomePageContent> {
             'description': serviceDoc['description'] ?? 'Unknown Description',
             'price': serviceDoc['price'] ?? 'Unknown Price',
             'service': serviceDoc['service'] ?? 'Unknown Service',
+            'providerId': userId, // Ensure the providerId is included
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
           });
@@ -266,6 +267,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
     return serviceList;
   }
+
 
 
   List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
