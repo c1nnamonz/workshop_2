@@ -15,10 +15,11 @@ class MaintenanceProviderHomePage extends StatefulWidget {
       _MaintenanceProviderHomePageState();
 }
 
-class _MaintenanceProviderHomePageState extends State<MaintenanceProviderHomePage> {
+class _MaintenanceProviderHomePageState
+    extends State<MaintenanceProviderHomePage> {
   int _selectedIndex = 0;
   late List<Widget> _pages;
-  final SalesPage salesPage = SalesPage(); // Instantiate SalesPage
+  final SalesPage salesPage = SalesPage();
 
   @override
   void initState() {
@@ -37,7 +38,7 @@ class _MaintenanceProviderHomePageState extends State<MaintenanceProviderHomePag
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
-          image: AssetImage("images/mppage_bg2.png"), // Updated image path
+          image: AssetImage("images/mppage_bg4.png"), // Background image
           fit: BoxFit.cover,
         ),
       ),
@@ -48,7 +49,7 @@ class _MaintenanceProviderHomePageState extends State<MaintenanceProviderHomePag
           children: [
             const Text(
               'Dashboard',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black45),
             ),
             const SizedBox(height: 20),
             _buildDashboardItem(
@@ -110,20 +111,26 @@ class _MaintenanceProviderHomePageState extends State<MaintenanceProviderHomePag
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CircleAvatar(
-                backgroundColor: color.withOpacity(0.2),
-                child: Icon(icon, color: color),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  CircleAvatar(
+                    backgroundColor: color.withOpacity(0.2),
+                    child: Icon(icon, color: color),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ],
               ),
+              const Icon(Icons.arrow_forward, color: Colors.grey),
             ],
           ),
         ),

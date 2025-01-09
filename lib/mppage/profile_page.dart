@@ -155,7 +155,7 @@ class _MaintenanceProviderProfilePageState
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
-          image: AssetImage("images/mppage_bg3.png"), // Set background image
+          image: AssetImage("images/mppage_bg4.png"), // Set background image
           fit: BoxFit.cover, // Ensure the image covers the entire container
         ),
       ),

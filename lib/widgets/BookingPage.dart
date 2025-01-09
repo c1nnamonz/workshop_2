@@ -35,7 +35,7 @@ class BookingPage extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage("images/mppage_bg2.png"), // Background image path
+            image: AssetImage("images/mppage_bg4.png"), // Background image path
             fit: BoxFit.cover,
           ),
         ),
