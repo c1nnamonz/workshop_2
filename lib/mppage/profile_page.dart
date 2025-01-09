@@ -115,38 +115,37 @@ class _MaintenanceProviderProfilePageState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            EditMaintenanceProfilePage(
-              companyName: _companyName,
-              ownerName: _ownerName,
-              operatingHours: _operatingHours,
-              location: _location,
-              profileImageUrl: _profileImageUrl ?? "",
-              onSave: (companyName, ownerName, operatingHours, location,
-                  profileImageUrl) async {
-                String finalProfileImageUrl = profileImageUrl;
+        builder: (context) => EditMaintenanceProfilePage(
+          companyName: _companyName,
+          ownerName: _ownerName,
+          operatingHours: _operatingHours,
+          location: _location,
+          profileImageUrl: _profileImageUrl ?? "",
+          onSave: (companyName, ownerName, operatingHours, location,
+              profileImageUrl) async {
+            String finalProfileImageUrl = profileImageUrl;
 
-                // Check if a new image was uploaded
-                if (profileImageUrl.isEmpty && _profileImageUrl != null) {
-                  final imageUrl =
-                  await _uploadProfileImage(File(_profileImageUrl!));
-                  if (imageUrl != null) {
-                    finalProfileImageUrl = imageUrl;
-                  }
-                }
+            // Check if a new image was uploaded
+            if (profileImageUrl.isEmpty && _profileImageUrl != null) {
+              final imageUrl =
+              await _uploadProfileImage(File(_profileImageUrl!));
+              if (imageUrl != null) {
+                finalProfileImageUrl = imageUrl;
+              }
+            }
 
-                setState(() {
-                  _companyName = companyName;
-                  _ownerName = ownerName;
-                  _operatingHours = operatingHours;
-                  _location = location;
-                  _profileImageUrl = finalProfileImageUrl;
-                });
+            setState(() {
+              _companyName = companyName;
+              _ownerName = ownerName;
+              _operatingHours = operatingHours;
+              _location = location;
+              _profileImageUrl = finalProfileImageUrl;
+            });
 
-                await _saveProfile(companyName, ownerName, operatingHours,
-                    location, finalProfileImageUrl);
-              },
-            ),
+            await _saveProfile(companyName, ownerName, operatingHours,
+                location, finalProfileImageUrl);
+          },
+        ),
       ),
     );
   }
@@ -162,7 +161,6 @@ class _MaintenanceProviderProfilePageState
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        // Make the scaffold background transparent
         appBar: AppBar(title: const Text("Profile Page")),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -188,34 +186,102 @@ class _MaintenanceProviderProfilePageState
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black, // Adjusted for better visibility
+                    color: Colors.black,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                "Owner Name: $_ownerName",
-                style: const TextStyle(
-                    color: Colors.black), // White text for visibility
-              ),
-              Text(
-                "Operating Hours: $_operatingHours",
-                style: const TextStyle(color: Colors.black),
-              ),
-              Text(
-                "Location: $_location",
-                style: const TextStyle(color: Colors.black),
-              ),
-              Text(
-                "Rating: $_rating",
-                style: const TextStyle(color: Colors.black),
+              const SizedBox(height: 20),
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.person, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Text(
+                            "Owner Name",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _ownerName,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const Divider(),
+                      Row(
+                        children: const [
+                          Icon(Icons.access_time, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Text(
+                            "Operating Hours",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _operatingHours,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const Divider(),
+                      Row(
+                        children: const [
+                          Icon(Icons.location_on, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Text(
+                            "Location",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _location,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const Divider(),
+                      Row(
+                        children: const [
+                          Icon(Icons.star, color: Colors.blueGrey),
+                          SizedBox(width: 8),
+                          Text(
+                            "Rating",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _rating.toString(),
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _navigateToManageServices,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange[300], // Light orange button
-                  foregroundColor: Colors.black, // Black text color
+                  backgroundColor: Colors.blueGrey,
+                  foregroundColor: Colors.white,
                 ),
                 child: const Text("Manage Services"),
               ),
@@ -223,8 +289,8 @@ class _MaintenanceProviderProfilePageState
               ElevatedButton(
                 onPressed: _navigateToEditProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey, // Blue-grey button
-                  foregroundColor: Colors.white, // White text color
+                  backgroundColor: Colors.blueGrey,
+                  foregroundColor: Colors.white,
                 ),
                 child: const Text("Edit Profile"),
               ),
@@ -234,5 +300,4 @@ class _MaintenanceProviderProfilePageState
       ),
     );
   }
-
 }
