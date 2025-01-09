@@ -10,8 +10,12 @@ class BookingCard extends StatelessWidget {
   final String scheduleOrCompletion;
   final String? rating;
   final String? price;
+  final String? finalPrice;
+  final String? customerPriceRequest;
   final IconData icon;
   final Color? iconColor;
+  final bool showPaymentButton;
+  final VoidCallback? onEditPrice;
 
   BookingCard({
     required this.companyName,
@@ -19,8 +23,12 @@ class BookingCard extends StatelessWidget {
     required this.scheduleOrCompletion,
     this.rating,
     this.price,
+    this.finalPrice,
+    this.customerPriceRequest,
     required this.icon,
     this.iconColor,
+    this.showPaymentButton = false,
+    this.onEditPrice,
   });
 
   @override
@@ -62,13 +70,53 @@ class BookingCard extends StatelessWidget {
             if (price != null) ...[
               const SizedBox(height: 8),
               Align(
-                alignment: Alignment.bottomRight,
+                alignment: Alignment.bottomLeft,
                 child: Text(
                   price!,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
+            if (finalPrice != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Text(
+                  'Final Price: RM$finalPrice',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+              ),
+            ],
+            if (customerPriceRequest != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Text(
+                  'Price Request Submitted: RM$customerPriceRequest',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
+                ),
+              ),
+            ],
+            if (showPaymentButton) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.bottomRight, // Align the button to the bottom right
+                child: ElevatedButton(
+                  onPressed: () {}, // Dummy payment button action
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  child: const Text('Make Payment'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: ElevatedButton(
+                onPressed: onEditPrice,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('Edit Price'),
+              ),
+            ),
           ],
         ),
       ),
@@ -77,6 +125,53 @@ class BookingCard extends StatelessWidget {
 }
 
 class BookingsPage extends StatelessWidget {
+  void _editPrice(BuildContext context, String bookingId) {
+    final TextEditingController priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Price'),
+          content: TextField(
+            controller: priceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Enter new price'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newPrice = priceController.text;
+                if (newPrice.isNotEmpty) {
+                  await FirebaseFirestore.instance
+                      .collection('bookings')
+                      .doc(bookingId)
+                      .update({'Customer price request': newPrice});
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Price updated successfully.')),
+                  );
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid price.')),
+                  );
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -154,12 +249,15 @@ class BookingsPage extends StatelessWidget {
                             problemDescription: data['problemDescription'],
                             scheduleOrCompletion: 'Ongoing since: ${data['bookingDate']} at ${data['bookingTime']}',
                             icon: Icons.access_time, // Ongoing icon for Booked tab
+                            finalPrice: data['Final Price'],
+                            customerPriceRequest: data['Customer price request'],
+                            showPaymentButton: true, // Payment button only in Booked section
+                            onEditPrice: () => _editPrice(context, service.id),
                           );
                         },
                       );
                     },
                   ),
-
 
                   // 'Pending' tab (Fetching from Firestore)
                   StreamBuilder<QuerySnapshot>(

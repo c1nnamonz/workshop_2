@@ -12,38 +12,94 @@ class BookingDetailsPage extends StatefulWidget {
 
 class _BookingDetailsPageState extends State<BookingDetailsPage> {
   late String status;
+  String? finalPrice;
+  String? customerPriceRequest;
 
   @override
   void initState() {
     super.initState();
-    status = widget.booking['status'] ?? 'Pending';  // Default to 'Pending' if 'status' is null
+    status = widget.booking['status'] ?? 'Pending'; // Default to 'Pending' if 'status' is null
+    _fetchBookingDetails();
   }
 
-  // Fetch the updated booking status from Firestore
-  Future<void> _fetchBookingStatus() async {
+  Future<void> _fetchBookingDetails() async {
     final bookingId = widget.booking['bookingId'];
     final bookingDoc = await FirebaseFirestore.instance.collection('bookings').doc(bookingId).get();
-    final updatedStatus = bookingDoc.data()?['status'] ?? 'Pending';
+    final data = bookingDoc.data();
     setState(() {
-      status = updatedStatus;  // Update the status from Firestore
+      status = data?['status'] ?? 'Pending';
+      finalPrice = data?['Final Price'];
+      customerPriceRequest = data?['Customer price request'];
     });
   }
 
-  Future<void> _updateBookingStatus(String newStatus) async {
+  Future<void> _updateBookingStatus(String newStatus, {String? finalPrice}) async {
     final bookingId = widget.booking['bookingId'];
-    await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update({
+    final dataToUpdate = {
       'status': newStatus,
-    });
+    };
+
+    if (finalPrice != null) {
+      dataToUpdate['Final Price'] = finalPrice;
+    }
+
+    await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update(dataToUpdate);
 
     setState(() {
-      status = newStatus;  // Update the status in the local state to reflect the change
+      status = newStatus;
+      this.finalPrice = finalPrice ?? this.finalPrice;
     });
+  }
+
+  Future<void> _acceptPriceRequest() async {
+    if (customerPriceRequest != null) {
+      await _updateBookingStatus(status, finalPrice: customerPriceRequest);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Price request accepted.')),
+      );
+    }
   }
 
   void _acceptBooking(BuildContext context) async {
-    await _updateBookingStatus('Ongoing');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Booking accepted.')),
+    final TextEditingController priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter Final Price'),
+          content: TextField(
+            controller: priceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Enter the final price'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final finalPrice = priceController.text;
+                if (finalPrice.isNotEmpty) {
+                  await _updateBookingStatus('Ongoing', finalPrice: finalPrice);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Booking accepted.')),
+                  );
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid price.')),
+                  );
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -98,9 +154,28 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             Text('Date: ${widget.booking['date']}'),
             const SizedBox(height: 10),
             Text('Details: ${widget.booking['details']}'),
+            if (finalPrice != null) ...[
+              const SizedBox(height: 10),
+              Text('Final Price: $finalPrice',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+            if (customerPriceRequest != null) ...[
+              const SizedBox(height: 10),
+              Text('Customer Price Request: $customerPriceRequest',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
+            ],
+            if (customerPriceRequest != null && customerPriceRequest != finalPrice) ...[
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _acceptPriceRequest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+                child: const Text('Accept Price Request'),
+              ),
+            ],
             const SizedBox(height: 20),
             if (status == 'Pending') ...[
-              // Show Accept and Decline buttons only when the status is Pending
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -121,7 +196,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                 ],
               ),
             ] else if (status == 'Ongoing') ...[
-              // Show Cancel Service button if the booking is Ongoing
               ElevatedButton(
                 onPressed: () => _cancelService(context),
                 style: ElevatedButton.styleFrom(
@@ -130,7 +204,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                 child: const Text('Cancel Service'),
               ),
             ] else ...[
-              // If the status is anything other than Pending or Ongoing, show nothing
               const SizedBox.shrink(),
             ],
           ],
@@ -142,6 +215,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _fetchBookingStatus();  // Fetch status whenever the page is revisited
+    _fetchBookingDetails();
   }
 }
