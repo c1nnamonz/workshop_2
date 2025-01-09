@@ -1,61 +1,83 @@
 import 'package:flutter/material.dart';
-import 'package:projects/widgets/BookingDetailsPage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'BookingDetailsPage.dart';
 
 class BookingPage extends StatelessWidget {
-  final List<Map<String, dynamic>> bookings = [
-    {
-      'customerName': 'Alice Johnson',
-      'service': 'Plumbing Repair',
-      'date': '2024-12-29',
-      'time': '10:00 AM',
-      'details': 'Fixing a leaking pipe in the kitchen.',
-    },
-    {
-      'customerName': 'Bob Smith',
-      'service': 'Electrical Wiring',
-      'date': '2024-12-30',
-      'time': '02:00 PM',
-      'details': 'Installing new wiring in the living room.',
-    },
-    {
-      'customerName': 'Carol Williams',
-      'service': 'Air Conditioner Repair',
-      'date': '2024-12-31',
-      'time': '09:30 AM',
-      'details': 'Repairing the AC unit in the bedroom.',
-    },
-  ];
+  const BookingPage({Key? key}) : super(key: key);
+
+  Future<List<Map<String, dynamic>>> _fetchBookings(String providerId) async {
+    final bookingsSnapshot = await FirebaseFirestore.instance
+        .collection('bookings')
+        .where('providerId', isEqualTo: providerId)  // Filter bookings by providerId
+        .get();
+
+    List<Map<String, dynamic>> bookingsList = [];
+
+    for (var doc in bookingsSnapshot.docs) {
+      final bookingData = doc.data();
+      final userId = bookingData['userId'];
+      final userSnapshot = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+
+      if (userSnapshot.exists) {
+        final userData = userSnapshot.data()!;
+        bookingsList.add({
+          'bookingId': doc.id,
+          'customerName': '${userData['firstName']} ${userData['lastName']}',
+          'service': bookingData['serviceName'],
+          'date': bookingData['bookingDate'],
+          'details': bookingData['problemDescription'],
+          'userDetails': userData, // Pass user details for later use
+        });
+      }
+    }
+    return bookingsList;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: bookings.length,
-      itemBuilder: (context, index) {
-        final booking = bookings[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8.0),
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.blue,
-              child: Icon(Icons.calendar_today, color: Colors.white),
-            ),
-            title: Text(booking['customerName']),
-            subtitle: Text('${booking['service']} - ${booking['date']}'),
-            trailing: const Icon(Icons.arrow_forward),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BookingDetailsPage(booking: booking),
+    // Get the logged-in provider's ID (you might fetch it from Firebase Authentication)
+    final providerId = "DRm10kU7rscIttKSeCxsGZNA00B3"; // Example provider ID
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchBookings(providerId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Error fetching bookings.'));
+        }
+        final bookings = snapshot.data ?? [];
+        return ListView.builder(
+          padding: const EdgeInsets.all(16.0),
+          itemCount: bookings.length,
+          itemBuilder: (context, index) {
+            final booking = bookings[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.blue,
+                  child: Icon(Icons.calendar_today, color: Colors.white),
                 ),
-              );
-            },
-          ),
+                title: Text(booking['customerName']),
+                subtitle: Text('${booking['service']} - ${booking['date']}'),
+                trailing: const Icon(Icons.arrow_forward),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BookingDetailsPage(booking: booking),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );

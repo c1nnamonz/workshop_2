@@ -13,6 +13,21 @@ class _ServicesManagerState extends State<ServicesManager> {
 
   String? _userId; // Dynamically set user ID from FirebaseAuth
   List<Map<String, String>> _services = [];
+  final List<String> _availableServices = [
+    "Plumbing",
+    "Electrical",
+    "Air-cond",
+    "Cleaning",
+    "Renovation",
+    "Security",
+    "Landscaping",
+    "Pest Control",
+    "Appliance Repair",
+    "Furniture Assembly",
+    "Smart Home Installation",
+    "Pool Maintenance",
+
+  ]; // Predefined services
 
   @override
   void initState() {
@@ -24,7 +39,6 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _initializeUser() async {
     User? currentUser = _auth.currentUser;
     if (currentUser == null) {
-      // Prompt user to log in
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("User not logged in! Please log in.")),
       );
@@ -43,7 +57,6 @@ class _ServicesManagerState extends State<ServicesManager> {
   Future<void> _loadServices() async {
     if (_userId == null) return;
 
-    // Query Firestore to get services where userId is the owner of the service
     final snapshot = await _firestore
         .collection("services")
         .where("userId", isEqualTo: _userId)
@@ -55,13 +68,13 @@ class _ServicesManagerState extends State<ServicesManager> {
           "service": doc["service"]?.toString() ?? "",
           "description": doc["description"]?.toString() ?? "",
           "price": doc["price"]?.toString() ?? "",
+          "docId": doc.id, // Store document ID for uniqueness
         };
       }).toList();
     });
   }
 
-
-  // Add a new service to the list
+  // Add a new empty service to the list
   void _addService() {
     setState(() {
       _services.add({
@@ -79,24 +92,36 @@ class _ServicesManagerState extends State<ServicesManager> {
     });
   }
 
-  // Save services to Firestore
+  // Save services to Firestore, avoiding duplicates
   Future<void> _saveServices() async {
     if (_userId == null) return;
 
     try {
-      // Save each service as a separate document in Firestore
       for (var service in _services) {
-        await _firestore.collection("services").add({
-          "userId": _userId,
-          "service": service["service"],
-          "description": service["description"],
-          "price": service["price"],
-        });
+        if (service["service"]!.isNotEmpty) {
+          final existingServices = await _firestore
+              .collection("services")
+              .where("userId", isEqualTo: _userId)
+              .where("service", isEqualTo: service["service"])
+              .get();
+
+          if (existingServices.docs.isEmpty) {
+            await _firestore.collection("services").add({
+              "userId": _userId,
+              "service": service["service"],
+              "description": service["description"],
+              "price": service["price"],
+            });
+          }
+        }
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Services saved successfully!")),
       );
+
+      // Reload services to reflect new additions
+      _loadServices();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to save services: $e")),
@@ -127,12 +152,20 @@ class _ServicesManagerState extends State<ServicesManager> {
 
                 return Card(
                   child: ListTile(
-                    title: TextField(
-                      controller: TextEditingController(text: service["service"]),
-                      decoration: const InputDecoration(labelText: "Service"),
+                    title: DropdownButtonFormField<String>(
+                      value: (service["service"] ?? "").isEmpty ? null : service["service"],
+                      items: _availableServices.map((service) {
+                        return DropdownMenuItem<String>(
+                          value: service,
+                          child: Text(service),
+                        );
+                      }).toList(),
                       onChanged: (value) {
-                        _services[index]["service"] = value;
+                        setState(() {
+                          _services[index]["service"] = value!;
+                        });
                       },
+                      decoration: const InputDecoration(labelText: "Service"),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,12 +205,26 @@ class _ServicesManagerState extends State<ServicesManager> {
                 onPressed: _saveServices,
                 child: const Text("Save Services"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Set button color to blue
-                  foregroundColor: Colors.white, // Set text color to white
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
+              const SizedBox(height: 20),
+              const Text(
+                "Saved Services:",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              ..._services.map((service) {
+                if (service["service"]!.isNotEmpty) {
+                  return ListTile(
+                    title: Text(service["service"]!),
+                    subtitle: Text("Description: ${service["description"]}\nPrice: ${service["price"]}"),
+                  );
+                }
+                return Container();
+              }).toList(),
             ],
           ),
         ),

@@ -29,6 +29,7 @@ class _BookingFormState extends State<BookingForm> {
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _problemDescriptionController = TextEditingController(); // New controller for Problem Description
 
   String selectedLocation = 'Select Location';
   LatLng? selectedCoordinates;
@@ -83,8 +84,12 @@ class _BookingFormState extends State<BookingForm> {
     String bookingDate = _dateController.text;
     String bookingTime = _timeController.text;
     String location = selectedLocation;
+    String problemDescription = _problemDescriptionController.text; // Get Problem Description input
 
-    if (bookingDate.isEmpty || bookingTime.isEmpty || location == 'Select Location') {
+    if (bookingDate.isEmpty ||
+        bookingTime.isEmpty ||
+        location == 'Select Location' ||
+        problemDescription.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
@@ -114,6 +119,9 @@ class _BookingFormState extends State<BookingForm> {
           'latitude': selectedCoordinates?.latitude,
           'longitude': selectedCoordinates?.longitude,
         },
+        'bookingDate': bookingDate, // Add booking date
+        'bookingTime': bookingTime, // Add booking time
+        'problemDescription': problemDescription, // Add Problem Description
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'Pending', // Add the status field with value 'Pending'
       });
@@ -270,6 +278,12 @@ class _BookingFormState extends State<BookingForm> {
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _problemDescriptionController,
+                decoration: const InputDecoration(labelText: 'Problem Description'),
+                maxLines: 3,
+              ),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _submitBooking,
@@ -282,3 +296,4 @@ class _BookingFormState extends State<BookingForm> {
     );
   }
 }
+

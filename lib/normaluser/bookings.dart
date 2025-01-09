@@ -5,22 +5,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../auth/firebase_utils.dart';
 
 class BookingCard extends StatelessWidget {
-  final String companyName; // Changed from serviceName to companyName
+  final String companyName;
   final String problemDescription;
   final String scheduleOrCompletion;
-  final String? rating; // Optional for "Completed" tab
-  final String? price; // Optional for "Completed" tab
-  final IconData icon; // New parameter for the icon
-  final Color? iconColor; // Optional for custom icon color
+  final String? rating;
+  final String? price;
+  final IconData icon;
+  final Color? iconColor;
 
   BookingCard({
-    required this.companyName, // Changed here
+    required this.companyName,
     required this.problemDescription,
     required this.scheduleOrCompletion,
     this.rating,
     this.price,
-    required this.icon, // Required for the icon
-    this.iconColor, // Optional for custom icon color
+    required this.icon,
+    this.iconColor,
   });
 
   @override
@@ -32,13 +32,12 @@ class BookingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Row for icon and company name
             Row(
               children: [
                 Icon(icon, size: 30, color: iconColor ?? Colors.blue),
-                const SizedBox(width: 10), // Space between icon and text
+                const SizedBox(width: 10),
                 Text(
-                  companyName, // Updated here
+                  companyName,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -80,49 +79,8 @@ class BookingCard extends StatelessWidget {
 class BookingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Dummy data for the "Booked" tab
-    final bookedServices = [
-      {
-        'companyName': "HomeFix Repairs", // Changed here
-        'problemDescription': "Air-conditioner servicing",
-        'schedule': "Scheduled on: 2024-12-22, 11:00 AM",
-      },
-      {
-        'companyName': "Sparkle Cleaners", // Changed here
-        'problemDescription': "Kitchen deep cleaning",
-        'schedule': "Scheduled on: 2024-12-23, 9:00 AM",
-      },
-    ];
-
-    // Dummy data for the "Completed" tab
-    final completedServices = [
-      {
-        'companyName': "John's Plumbing", // Changed here
-        'problemDescription': "Pipe leaking",
-        'rating': "⭐⭐⭐⭐",
-        'completionDate': "Completed on: 2024-12-20, 3:00 PM",
-        'price': "RM57",
-      },
-      {
-        'companyName': "CleanPro Cleaning", // Changed here
-        'problemDescription': "Full home cleaning",
-        'rating': "⭐⭐⭐⭐⭐",
-        'completionDate': "Completed on: 2024-12-18, 10:00 AM",
-        'price': "RM120",
-      },
-    ];
-
-    // Dummy data for canceled services
-    final canceledServices = [
-      {
-        'companyName': "QuickFix Electrical", // Changed here
-        'problemDescription': "Wiring installation canceled",
-        'completionDate': "Canceled on: 2024-12-19, 12:00 PM",
-      },
-    ];
-
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -150,7 +108,6 @@ class BookingsPage extends StatelessWidget {
         ),
         body: Column(
           children: [
-            // TabBar wrapped in a styled container
             Container(
               color: Colors.grey[200],
               padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -163,35 +120,53 @@ class BookingsPage extends StatelessWidget {
                   Tab(text: 'Booked'),
                   Tab(text: 'Pending'),
                   Tab(text: 'Completed'),
+                  Tab(text: 'Cancelled'),
                 ],
               ),
             ),
-            // TabBarView for the content
             Expanded(
               child: TabBarView(
                 children: [
-                  // 'Booked' tab
-                  bookedServices.isNotEmpty
-                      ? ListView.builder(
-                    itemCount: bookedServices.length,
-                    itemBuilder: (context, index) {
-                      final service = bookedServices[index];
-                      return BookingCard(
-                        companyName: service['companyName']!, // Changed here
-                        problemDescription: service['problemDescription']!,
-                        scheduleOrCompletion: service['schedule']!,
-                        icon: Icons.calendar_today, // Scheduled icon for Booked tab
+                  // 'Booked' tab (Including Ongoing services)
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Ongoing')
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid) // This might be incorrect, check if it should be 'providerId'
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Ongoing Services'));
+                      }
+                      final ongoingServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: ongoingServices.length,
+                        itemBuilder: (context, index) {
+                          final service = ongoingServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return BookingCard(
+                            companyName: data['companyName'],
+                            problemDescription: data['problemDescription'],
+                            scheduleOrCompletion: 'Ongoing since: ${data['bookingDate']} at ${data['bookingTime']}',
+                            icon: Icons.access_time, // Ongoing icon for Booked tab
+                          );
+                        },
                       );
                     },
-                  )
-                      : const Center(child: Text('No Booked Services')),
+                  ),
+
 
                   // 'Pending' tab (Fetching from Firestore)
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('bookings')
-                        .where('status', isEqualTo: 'Pending') // Filter for pending bookings
-                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid) // Using FirebaseAuth to get the current user's UID
+                        .where('status', isEqualTo: 'Pending')
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -206,10 +181,12 @@ class BookingsPage extends StatelessWidget {
                         itemCount: pendingServices.length,
                         itemBuilder: (context, index) {
                           final service = pendingServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
                           return BookingCard(
-                            companyName: service['companyName'], // Display company name
-                            problemDescription: service['description'], // Display the service description
-                            scheduleOrCompletion: 'Created on: ${service['createdAt'].toDate()}', // Show creation date
+                            companyName: data['companyName'],
+                            problemDescription: data['problemDescription'],
+                            scheduleOrCompletion: 'Scheduled on: ${data['bookingDate']} at ${data['bookingTime']}',
                             icon: Icons.build, // Icon for Pending tab
                           );
                         },
@@ -217,30 +194,72 @@ class BookingsPage extends StatelessWidget {
                     },
                   ),
 
-
-
                   // 'Completed' tab
-                  completedServices.isNotEmpty || canceledServices.isNotEmpty
-                      ? ListView(
-                    children: [
-                      ...completedServices.map((service) => BookingCard(
-                        companyName: service['companyName']!, // Changed here
-                        problemDescription: service['problemDescription']!,
-                        scheduleOrCompletion: service['completionDate']!,
-                        rating: service['rating'],
-                        price: service['price'],
-                        icon: Icons.check_circle, // Checked icon for Completed tab
-                      )),
-                      ...canceledServices.map((service) => BookingCard(
-                        companyName: service['companyName']!, // Changed here
-                        problemDescription: service['problemDescription']!,
-                        scheduleOrCompletion: service['completionDate']!,
-                        icon: Icons.error, // Exclamation icon for canceled services
-                        iconColor: Colors.red,
-                      )),
-                    ],
-                  )
-                      : const Center(child: Text('No Completed Services')),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Completed')
+                        .where('providerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Completed Services'));
+                      }
+                      final completedServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: completedServices.length,
+                        itemBuilder: (context, index) {
+                          final service = completedServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return BookingCard(
+                            companyName: data['companyName'],
+                            problemDescription: data['problemDescription'],
+                            scheduleOrCompletion: 'Completed on: ${data['completionDate']}',
+                            icon: Icons.check_circle, // Checked icon for Completed tab
+                          );
+                        },
+                      );
+                    },
+                  ),
+
+                  // 'Cancelled' tab
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Cancelled')
+                        .where('providerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Cancelled Services'));
+                      }
+                      final cancelledServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: cancelledServices.length,
+                        itemBuilder: (context, index) {
+                          final service = cancelledServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return BookingCard(
+                            companyName: data['companyName'],
+                            problemDescription: data['problemDescription'],
+                            scheduleOrCompletion: 'Cancelled on: ${data['cancelledDate']}',
+                            icon: Icons.error, // Error icon for Cancelled tab
+                            iconColor: Colors.red,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
