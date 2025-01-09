@@ -14,11 +14,12 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   late String status;
   String? finalPrice;
   String? customerPriceRequest;
+  String? providerPriceRequest;
 
   @override
   void initState() {
     super.initState();
-    status = widget.booking['status'] ?? 'Pending'; // Default to 'Pending' if 'status' is null
+    status = widget.booking['status'] ?? 'Pending';
     _fetchBookingDetails();
   }
 
@@ -30,10 +31,11 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
       status = data?['status'] ?? 'Pending';
       finalPrice = data?['Final Price'];
       customerPriceRequest = data?['Customer price request'];
+      providerPriceRequest = data?['Provider price request'];
     });
   }
 
-  Future<void> _updateBookingStatus(String newStatus, {String? finalPrice}) async {
+  Future<void> _updateBookingStatus(String newStatus, {String? finalPrice, String? providerPriceRequest}) async {
     final bookingId = widget.booking['bookingId'];
     final dataToUpdate = {
       'status': newStatus,
@@ -43,11 +45,16 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
       dataToUpdate['Final Price'] = finalPrice;
     }
 
+    if (providerPriceRequest != null) {
+      dataToUpdate['Provider price request'] = providerPriceRequest;
+    }
+
     await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update(dataToUpdate);
 
     setState(() {
       status = newStatus;
       this.finalPrice = finalPrice ?? this.finalPrice;
+      this.providerPriceRequest = providerPriceRequest ?? this.providerPriceRequest;
     });
   }
 
@@ -58,6 +65,49 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
         const SnackBar(content: Text('Price request accepted.')),
       );
     }
+  }
+
+  void _makeProviderPriceRequest(BuildContext context) {
+    final TextEditingController priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Price Request'),
+          content: TextField(
+            controller: priceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Enter proposed price'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newPriceRequest = priceController.text;
+                if (newPriceRequest.isNotEmpty) {
+                  await _updateBookingStatus(status, providerPriceRequest: newPriceRequest);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Price request submitted.')),
+                  );
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid price.')),
+                  );
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _acceptBooking(BuildContext context) async {
@@ -164,8 +214,13 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               Text('Customer Price Request: $customerPriceRequest',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
             ],
+            if (providerPriceRequest != null) ...[
+              const SizedBox(height: 10),
+              Text('Provider Price Request: $providerPriceRequest',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+            ],
+            const SizedBox(height: 20),
             if (customerPriceRequest != null && customerPriceRequest != finalPrice) ...[
-              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _acceptPriceRequest,
                 style: ElevatedButton.styleFrom(
@@ -174,6 +229,14 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                 child: const Text('Accept Price Request'),
               ),
             ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => _makeProviderPriceRequest(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
+              child: const Text('Make Price Request'),
+            ),
             const SizedBox(height: 20),
             if (status == 'Pending') ...[
               Row(

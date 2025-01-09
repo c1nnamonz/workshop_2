@@ -12,10 +12,12 @@ class BookingCard extends StatelessWidget {
   final String? price;
   final String? finalPrice;
   final String? customerPriceRequest;
+  final String? providerPriceRequest;
   final IconData icon;
   final Color? iconColor;
   final bool showPaymentButton;
   final VoidCallback? onEditPrice;
+  final VoidCallback? onAcceptProviderRequest;
 
   BookingCard({
     required this.companyName,
@@ -25,10 +27,12 @@ class BookingCard extends StatelessWidget {
     this.price,
     this.finalPrice,
     this.customerPriceRequest,
+    this.providerPriceRequest,
     required this.icon,
     this.iconColor,
     this.showPaymentButton = false,
     this.onEditPrice,
+    this.onAcceptProviderRequest,
   });
 
   @override
@@ -92,31 +96,53 @@ class BookingCard extends StatelessWidget {
               Align(
                 alignment: Alignment.bottomLeft,
                 child: Text(
-                  'Price Request Submitted: RM$customerPriceRequest',
+                  'Customer Price Request: RM$customerPriceRequest',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
                 ),
+              ),
+            ],
+            if (providerPriceRequest != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Text(
+                  'Provider Price Request: RM$providerPriceRequest',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            if (onEditPrice != null || onAcceptProviderRequest != null) ...[
+              const Divider(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (onEditPrice != null)
+                    ElevatedButton(
+                      onPressed: onEditPrice,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                      child: const Text('Edit Price'),
+                    ),
+                  if (onAcceptProviderRequest != null)
+                    ElevatedButton(
+                      onPressed: onAcceptProviderRequest,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      child: const Text('Accept Provider Request'),
+                    ),
+                ],
               ),
             ],
             if (showPaymentButton) ...[
               const SizedBox(height: 10),
               Align(
-                alignment: Alignment.bottomRight, // Align the button to the bottom right
+                alignment: Alignment.bottomRight,
                 child: ElevatedButton(
-                  onPressed: () {}, // Dummy payment button action
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   child: const Text('Make Payment'),
                 ),
               ),
             ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: ElevatedButton(
-                onPressed: onEditPrice,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: const Text('Edit Price'),
-              ),
-            ),
           ],
         ),
       ),
@@ -172,6 +198,17 @@ class BookingsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _acceptProviderPriceRequest(BuildContext context, String bookingId, String providerPriceRequest) async {
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(bookingId)
+        .update({'Final Price': providerPriceRequest});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Provider price request accepted.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -222,12 +259,11 @@ class BookingsPage extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  // 'Booked' tab (Including Ongoing services)
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('bookings')
                         .where('status', isEqualTo: 'Ongoing')
-                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid) // This might be incorrect, check if it should be 'providerId'
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -244,120 +280,30 @@ class BookingsPage extends StatelessWidget {
                           final service = ongoingServices[index];
                           final data = service.data() as Map<String, dynamic>;
 
+                          final providerPriceRequest = data['Provider price request'];
+                          final finalPrice = data['Final Price'];
+
                           return BookingCard(
                             companyName: data['companyName'],
                             problemDescription: data['problemDescription'],
                             scheduleOrCompletion: 'Ongoing since: ${data['bookingDate']} at ${data['bookingTime']}',
-                            icon: Icons.access_time, // Ongoing icon for Booked tab
-                            finalPrice: data['Final Price'],
+                            icon: Icons.access_time,
+                            finalPrice: finalPrice,
                             customerPriceRequest: data['Customer price request'],
-                            showPaymentButton: true, // Payment button only in Booked section
+                            providerPriceRequest: providerPriceRequest,
+                            showPaymentButton: true,
                             onEditPrice: () => _editPrice(context, service.id),
+                            onAcceptProviderRequest: (providerPriceRequest != null && providerPriceRequest != finalPrice)
+                                ? () => _acceptProviderPriceRequest(context, service.id, providerPriceRequest)
+                                : null,
                           );
                         },
                       );
                     },
                   ),
-
-                  // 'Pending' tab (Fetching from Firestore)
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('bookings')
-                        .where('status', isEqualTo: 'Pending')
-                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('No Pending Services'));
-                      }
-                      final pendingServices = snapshot.data!.docs;
-
-                      return ListView.builder(
-                        itemCount: pendingServices.length,
-                        itemBuilder: (context, index) {
-                          final service = pendingServices[index];
-                          final data = service.data() as Map<String, dynamic>;
-
-                          return BookingCard(
-                            companyName: data['companyName'],
-                            problemDescription: data['problemDescription'],
-                            scheduleOrCompletion: 'Scheduled on: ${data['bookingDate']} at ${data['bookingTime']}',
-                            icon: Icons.build, // Icon for Pending tab
-                          );
-                        },
-                      );
-                    },
-                  ),
-
-                  // 'Completed' tab
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('bookings')
-                        .where('status', isEqualTo: 'Completed')
-                        .where('providerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('No Completed Services'));
-                      }
-                      final completedServices = snapshot.data!.docs;
-
-                      return ListView.builder(
-                        itemCount: completedServices.length,
-                        itemBuilder: (context, index) {
-                          final service = completedServices[index];
-                          final data = service.data() as Map<String, dynamic>;
-
-                          return BookingCard(
-                            companyName: data['companyName'],
-                            problemDescription: data['problemDescription'],
-                            scheduleOrCompletion: 'Completed on: ${data['completionDate']}',
-                            icon: Icons.check_circle, // Checked icon for Completed tab
-                          );
-                        },
-                      );
-                    },
-                  ),
-
-                  // 'Cancelled' tab
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('bookings')
-                        .where('status', isEqualTo: 'Cancelled')
-                        .where('providerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('No Cancelled Services'));
-                      }
-                      final cancelledServices = snapshot.data!.docs;
-
-                      return ListView.builder(
-                        itemCount: cancelledServices.length,
-                        itemBuilder: (context, index) {
-                          final service = cancelledServices[index];
-                          final data = service.data() as Map<String, dynamic>;
-
-                          return BookingCard(
-                            companyName: data['companyName'],
-                            problemDescription: data['problemDescription'],
-                            scheduleOrCompletion: 'Cancelled on: ${data['cancelledDate']}',
-                            icon: Icons.error, // Error icon for Cancelled tab
-                            iconColor: Colors.red,
-                          );
-                        },
-                      );
-                    },
-                  ),
+                  const Center(child: Text('Pending')),
+                  const Center(child: Text('Completed')),
+                  const Center(child: Text('Cancelled')),
                 ],
               ),
             ),
