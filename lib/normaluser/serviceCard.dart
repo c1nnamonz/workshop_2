@@ -1,88 +1,82 @@
 import 'package:flutter/material.dart';
 
 class ServiceCard extends StatelessWidget {
-  final String providerName;
   final String serviceType;
   final String serviceName;
   final String rangePrice;
   final double rating;
   final String location;
-  final String imagePath; // Add image path for the icon
+  final String companyName;
+  final String providerId;
+  final String imagePath; // Add imagePath field
 
   ServiceCard({
-    required this.providerName,
     required this.serviceType,
     required this.serviceName,
     required this.rangePrice,
     required this.rating,
     required this.location,
-    required this.imagePath, // Accept image path
+    required this.companyName,
+    required this.providerId,
+    required this.imagePath, // Include the image path in constructor
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
       elevation: 5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(15.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
           children: [
-            // Displaying image at the top
+            // Image section - Display service icon/image
             Image.asset(
               imagePath,
-              width: 40,
-              height: 40,
+              width: 60,
+              height: 60,
               fit: BoxFit.cover,
             ),
-            const SizedBox(height: 10),
-            Text(
-              providerName,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+            const SizedBox(width: 15),
+            // Service Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    serviceName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Company: $companyName',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Location: $location',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Price Range: $rangePrice',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              serviceType,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Service: $serviceName',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Price: $rangePrice',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Location: $location',
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 5),
-            Row(
+            // Rating Section
+            Column(
               children: [
-                const Icon(
-                  Icons.star,
-                  color: Colors.orange,
-                  size: 18,
-                ),
-                const SizedBox(width: 5),
+                const Icon(Icons.star, color: Colors.orange, size: 20),
                 Text(
-                  rating.toString(),
-                  style: const TextStyle(fontSize: 16),
+                  rating.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -92,4 +86,3 @@ class ServiceCard extends StatelessWidget {
     );
   }
 }
-
