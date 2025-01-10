@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'BookingDetailsPage.dart';
+import 'package:projects/mppage/OngoingBookings.dart';
 
 class BookingPage extends StatelessWidget {
   const BookingPage({Key? key}) : super(key: key);
@@ -32,11 +33,43 @@ class BookingPage extends StatelessWidget {
           'service': bookingData['serviceName'],
           'date': bookingData['bookingDate'],
           'details': bookingData['problemDescription'],
+          'status': bookingData['status'] ?? 'Pending', // Include booking status
           'userDetails': userData, // Pass user details for later use
         });
       }
     }
     return bookingsList;
+  }
+
+  Tooltip _getStatusIcon(String status) {
+    switch (status) {
+      case 'Pending':
+        return Tooltip(
+          message: 'Pending: Booking request not yet accepted or declined.',
+          child: const Icon(Icons.access_time, color: Colors.orange),
+        ); // Clock icon
+      case 'Completed':
+        return Tooltip(
+          message: 'Completed: Service has been completed.',
+          child: const Icon(Icons.check_circle, color: Colors.green),
+        ); // Green checkmark icon
+      case 'Cancel':
+      case 'Rejected':
+        return Tooltip(
+          message: 'Canceled/Declined: Booking canceled by client/provider or declined.',
+          child: const Icon(Icons.cancel, color: Colors.red),
+        ); // Red X icon
+      case 'Ongoing':
+        return Tooltip(
+          message: 'Ongoing: Booking is accepted but service not yet completed.',
+          child: const Icon(Icons.calendar_today, color: Colors.blue),
+        ); // Calendar icon
+      default:
+        return Tooltip(
+          message: 'Unknown status.',
+          child: const Icon(Icons.help_outline, color: Colors.grey),
+        ); // Default help icon
+    }
   }
 
   @override
@@ -62,36 +95,60 @@ class BookingPage extends StatelessWidget {
               return const Center(child: Text('Error fetching bookings.'));
             }
             final bookings = snapshot.data ?? [];
-            return ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: bookings.length,
-              itemBuilder: (context, index) {
-                final booking = bookings[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8.0),
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      child: Icon(Icons.calendar_today, color: Colors.white),
-                    ),
-                    title: Text(booking['customerName']),
-                    subtitle: Text('${booking['service']} - ${booking['date']}'),
-                    trailing: const Icon(Icons.arrow_forward),
-                    onTap: () {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Navigate to OngoingBookingsPage
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => BookingDetailsPage(booking: booking),
+                          builder: (context) => OngoingBookingsPage(bookings: bookings),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: const Text('View Ongoing Bookings'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: bookings.length,
+                    itemBuilder: (context, index) {
+                      final booking = bookings[index];
+                      final status = booking['status'];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8.0),
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ListTile(
+                          leading: _getStatusIcon(status), // Status icon with Tooltip
+                          title: Text(booking['customerName']),
+                          subtitle: Text('${booking['service']} - ${booking['date']}'),
+                          trailing: const Icon(Icons.arrow_forward),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingDetailsPage(booking: booking),
+                              ),
+                            );
+                          },
                         ),
                       );
                     },
                   ),
-                );
-              },
+                ),
+              ],
             );
           },
         );

@@ -60,7 +60,7 @@ class _MaintenanceProviderHomePageState
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => AcceptedBookingsPage()),
+                  MaterialPageRoute(builder: (context) => AcceptedBookingsPage(bookings: [],)),
                 );
               },
             ),
