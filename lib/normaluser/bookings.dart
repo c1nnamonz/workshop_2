@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:projects/normaluser/payment.dart';
 
 import '../auth/firebase_utils.dart';
 
@@ -13,6 +14,9 @@ class BookingCard extends StatelessWidget {
   final String? finalPrice;
   final String? customerPriceRequest;
   final String? providerPriceRequest;
+  final String bookingId;
+  final String userId;
+  final String providerId;
   final IconData icon;
   final Color? iconColor;
   final bool showPaymentButton;
@@ -23,6 +27,9 @@ class BookingCard extends StatelessWidget {
     required this.companyName,
     required this.problemDescription,
     required this.scheduleOrCompletion,
+    required this.bookingId,
+    required this.userId,
+    required this.providerId,
     this.rating,
     this.price,
     this.finalPrice,
@@ -137,12 +144,25 @@ class BookingCard extends StatelessWidget {
               Align(
                 alignment: Alignment.bottomRight,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PaymentScreen(
+                          bookingId: bookingId,
+                          userId: userId,
+                          providerId: providerId,
+                          finalPrice: finalPrice ?? '0',
+                        ),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   child: const Text('Make Payment'),
                 ),
               ),
             ],
+
           ],
         ),
       ),
@@ -288,22 +308,176 @@ class BookingsPage extends StatelessWidget {
                             problemDescription: data['problemDescription'],
                             scheduleOrCompletion: 'Ongoing since: ${data['bookingDate']} at ${data['bookingTime']}',
                             icon: Icons.access_time,
-                            finalPrice: finalPrice,
+                            finalPrice: data['Final Price']?.toString(),
                             customerPriceRequest: data['Customer price request'],
-                            providerPriceRequest: providerPriceRequest,
+                            providerPriceRequest: data['Provider price request'],
+                            bookingId: service.id,
+                            userId: data['userId'],
+                            providerId: data['providerId'],
                             showPaymentButton: true,
                             onEditPrice: () => _editPrice(context, service.id),
-                            onAcceptProviderRequest: (providerPriceRequest != null && providerPriceRequest != finalPrice)
-                                ? () => _acceptProviderPriceRequest(context, service.id, providerPriceRequest)
+                            onAcceptProviderRequest: (data['Provider price request'] != null && data['Provider price request'] != data['Final Price'])
+                                ? () => _acceptProviderPriceRequest(context, service.id, data['Provider price request'])
                                 : null,
+                          );
+
+                        },
+                      );
+                    },
+                  ),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Pending')
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Pending Services'));
+                      }
+                      final pendingServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: pendingServices.length,
+                        itemBuilder: (context, index) {
+                          final service = pendingServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return BookingCard(
+                            companyName: data['companyName'],
+                            problemDescription: data['problemDescription'],
+                            scheduleOrCompletion: 'Pending since: ${data['bookingDate']} at ${data['bookingTime']}',
+                            icon: Icons.hourglass_empty,
+                            iconColor: Colors.orange,
+                            bookingId: service.id,
+                            userId: data['userId'],
+                            providerId: data['providerId'],
+                            price: data['price'],
                           );
                         },
                       );
                     },
                   ),
-                  const Center(child: Text('Pending')),
-                  const Center(child: Text('Completed')),
-                  const Center(child: Text('Cancelled')),
+
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Completed')
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Completed Services'));
+                      }
+                      final completedServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: completedServices.length,
+                        itemBuilder: (context, index) {
+                          final service = completedServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return FutureBuilder<QuerySnapshot>(
+                            future: FirebaseFirestore.instance
+                                .collection('payments')
+                                .where('bookingId', isEqualTo: service.id)
+                                .get(),
+                            builder: (context, paymentSnapshot) {
+                              if (paymentSnapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+
+                              String completionDate = 'N/A';
+                              if (paymentSnapshot.hasData && paymentSnapshot.data!.docs.isNotEmpty) {
+                                final paymentData = paymentSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                                final createdAt = paymentData['createdAt'] as Timestamp;
+                                completionDate = '${createdAt.toDate()}';
+                              }
+
+                              return BookingCard(
+                                companyName: data['companyName'],
+                                problemDescription: data['problemDescription'],
+                                scheduleOrCompletion: 'Completed on: $completionDate',
+                                icon: Icons.check_circle,
+                                iconColor: Colors.green,
+                                bookingId: service.id,
+                                userId: data['userId'],
+                                providerId: data['providerId'],
+                                price: data['price'],
+                                finalPrice: data['Final Price'],
+                                rating: data['rating'],
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('status', isEqualTo: 'Cancelled')
+                        .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No Cancelled Services'));
+                      }
+                      final cancelledServices = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: cancelledServices.length,
+                        itemBuilder: (context, index) {
+                          final service = cancelledServices[index];
+                          final data = service.data() as Map<String, dynamic>;
+
+                          return FutureBuilder<DocumentSnapshot>(
+                            future: FirebaseFirestore.instance
+                                .collection('bookings')
+                                .doc(service.id)
+                                .get(),
+                            builder: (context, cancellationSnapshot) {
+                              if (cancellationSnapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+
+                              String cancelledDate = 'N/A';
+                              if (cancellationSnapshot.hasData && cancellationSnapshot.data != null) {
+                                final cancelledAt = cancellationSnapshot.data!['cancelledAt'] as Timestamp?;
+                                if (cancelledAt != null) {
+                                  cancelledDate = '${cancelledAt.toDate()}';
+                                }
+                              }
+
+                              return BookingCard(
+                                companyName: data['companyName'],
+                                problemDescription: data['problemDescription'],
+                                scheduleOrCompletion: 'Cancelled on: $cancelledDate',
+                                icon: Icons.cancel,
+                                iconColor: Colors.red,
+                                bookingId: service.id,
+                                userId: data['userId'],
+                                providerId: data['providerId'],
+                                price: data['price'],
+                                finalPrice: data['Final Price'],
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+
                 ],
               ),
             ),

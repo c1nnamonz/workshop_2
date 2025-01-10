@@ -15,25 +15,45 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   String? finalPrice;
   String? customerPriceRequest;
   String? providerPriceRequest;
+  String? paymentStatus; // Add this to store the payment status
 
   @override
   void initState() {
     super.initState();
     status = widget.booking['status'] ?? 'Pending';
+    paymentStatus = widget.booking['paymentStatus']; // Fetch payment status
     _fetchBookingDetails();
   }
 
   Future<void> _fetchBookingDetails() async {
     final bookingId = widget.booking['bookingId'];
+
+    // Fetch booking details first
     final bookingDoc = await FirebaseFirestore.instance.collection('bookings').doc(bookingId).get();
     final data = bookingDoc.data();
+
+    // Fetch payment details
+    final paymentSnapshot = await FirebaseFirestore.instance
+        .collection('payments')
+        .where('bookingId', isEqualTo: bookingId) // Use bookingId to find the payment record
+        .limit(1)
+        .get();
+
+    String? fetchedPaymentStatus;
+    if (paymentSnapshot.docs.isNotEmpty) {
+      final paymentData = paymentSnapshot.docs.first.data();
+      fetchedPaymentStatus = paymentData['paymentStatus'];
+    }
+
     setState(() {
       status = data?['status'] ?? 'Pending';
       finalPrice = data?['Final Price'];
       customerPriceRequest = data?['Customer price request'];
       providerPriceRequest = data?['Provider price request'];
+      paymentStatus = fetchedPaymentStatus; // Use the fetched payment status
     });
   }
+
 
   Future<void> _updateBookingStatus(String newStatus, {String? finalPrice, String? providerPriceRequest}) async {
     final bookingId = widget.booking['bookingId'];
@@ -168,6 +188,12 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetchBookingDetails();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final userDetails = widget.booking['userDetails'];
 
@@ -206,54 +232,42 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             Text('Details: ${widget.booking['details']}'),
             if (finalPrice != null) ...[
               const SizedBox(height: 10),
-              Text('Final Price: $finalPrice',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Final Price: $finalPrice', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
             if (customerPriceRequest != null) ...[
               const SizedBox(height: 10),
-              Text('Customer Price Request: $customerPriceRequest',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
+              Text('Customer Price Request: $customerPriceRequest', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
             ],
             if (providerPriceRequest != null) ...[
               const SizedBox(height: 10),
-              Text('Provider Price Request: $providerPriceRequest',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text('Provider Price Request: $providerPriceRequest', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
             ],
             const SizedBox(height: 20),
-            if (customerPriceRequest != null && customerPriceRequest != finalPrice) ...[
+            if (paymentStatus == 'Paid') ...[
+              // Green tick symbol to indicate payment
+              const Icon(Icons.check_circle, color: Colors.green, size: 30),
+              const SizedBox(height: 20),
+            ],
+            if (paymentStatus != 'Paid') ...[
               ElevatedButton(
-                onPressed: _acceptPriceRequest,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                ),
-                child: const Text('Accept Price Request'),
+                onPressed: () => _makeProviderPriceRequest(context),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text('Make Price Request'),
               ),
+              const SizedBox(height: 20),
             ],
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _makeProviderPriceRequest(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-              ),
-              child: const Text('Make Price Request'),
-            ),
-            const SizedBox(height: 20),
             if (status == 'Pending') ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ElevatedButton(
                     onPressed: () => _acceptBooking(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     child: const Text('Accept'),
                   ),
                   ElevatedButton(
                     onPressed: () => _declineBooking(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     child: const Text('Decline'),
                   ),
                 ],
@@ -261,9 +275,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ] else if (status == 'Ongoing') ...[
               ElevatedButton(
                 onPressed: () => _cancelService(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Cancel Service'),
               ),
             ] else ...[
@@ -273,11 +285,5 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
         ),
       ),
     );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _fetchBookingDetails();
   }
 }
