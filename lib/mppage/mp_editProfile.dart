@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class EditMaintenanceProfilePage extends StatefulWidget {
   final String companyName;
   final String ownerName;
   final String operatingHours;
   final String location;
-  final String profileImageUrl;  // Accept the profile image URL as well
+  final String profileImageUrl;
   final Function(String, String, String, String, String) onSave;
 
   EditMaintenanceProfilePage({
@@ -31,6 +31,9 @@ class _EditMaintenanceProfilePageState
   late TextEditingController _operatingHoursController;
   late TextEditingController _locationController;
 
+  String? _profileImageUrl;
+  File? _imageFile;
+
   @override
   void initState() {
     super.initState();
@@ -39,108 +42,84 @@ class _EditMaintenanceProfilePageState
     _operatingHoursController =
         TextEditingController(text: widget.operatingHours);
     _locationController = TextEditingController(text: widget.location);
+    _profileImageUrl = widget.profileImageUrl;
   }
 
-  // Save the profile to Firestore in the "users" collection
-  Future<void> _saveToFirestore() async {
-    final FirebaseAuth _auth = FirebaseAuth.instance;
-    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    User? user = _auth.currentUser;
-    if (user != null) {
-      // Prepare the updated profile data
-      final profileData = {
-        'companyName': _companyNameController.text,
-        'ownerName': _ownerNameController.text,
-        'operatingHours': _operatingHoursController.text,
-        'location': _locationController.text,
-        'profileImageUrl': widget.profileImageUrl, // Pass profile image URL as well
-      };
-
-      try {
-        // Update the user document in the "users" collection
-        await _firestore.collection('users').doc(user.uid).set(profileData, SetOptions(merge: true));
-        print("Profile successfully updated in Firestore.");
-      } catch (e) {
-        print("Error updating profile: $e");
-      }
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+        _profileImageUrl = null; // Temporary, until the new image is saved
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Maintenance Provider Profile'),
-        backgroundColor: Colors.orangeAccent,
-      ),
+      appBar: AppBar(title: const Text('Edit Profile')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Company Name TextField
-                      TextField(
-                        controller: _companyNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Company Name',
-                          prefixIcon: const Icon(Icons.business),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundImage: _imageFile != null
+                          ? FileImage(_imageFile!)
+                          : (_profileImageUrl != null
+                          ? NetworkImage(_profileImageUrl!)
+                          : null) as ImageProvider<Object>?,
+                      child: _profileImageUrl == null && _imageFile == null
+                          ? const Icon(Icons.camera_alt, size: 40)
+                          : null,
+                    ),
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.4),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          size: 40,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 15),
-                      // Owner Name TextField
-                      TextField(
-                        controller: _ownerNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Owner Name',
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      // Operating Hours TextField
-                      TextField(
-                        controller: _operatingHoursController,
-                        decoration: InputDecoration(
-                          labelText: 'Operating Hours',
-                          prefixIcon: const Icon(Icons.schedule),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      // Location TextField
-                      TextField(
-                        controller: _locationController,
-                        decoration: InputDecoration(
-                          labelText: 'Location',
-                          prefixIcon: const Icon(Icons.location_on),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
-              // Save Button
+              TextField(
+                controller: _companyNameController,
+                decoration: const InputDecoration(labelText: 'Company Name'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _ownerNameController,
+                decoration: const InputDecoration(labelText: 'Owner Name'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _operatingHoursController,
+                decoration:
+                const InputDecoration(labelText: 'Operating Hours'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _locationController,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   widget.onSave(
@@ -148,24 +127,16 @@ class _EditMaintenanceProfilePageState
                     _ownerNameController.text,
                     _operatingHoursController.text,
                     _locationController.text,
-                    widget.profileImageUrl, // Pass the current profile image URL
+                    _profileImageUrl ??
+                        widget.profileImageUrl, // Use existing if not updated
                   );
-                  _saveToFirestore();  // Save to Firestore after editing
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.orangeAccent,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 50, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  backgroundColor: Colors.lightGreen, // Light green background
+                  foregroundColor: Colors.white, // White text color
                 ),
-                child: const Text(
-                  "Save",
-                  style: TextStyle(fontSize: 18),
-                ),
+                child: const Text("Save"),
               ),
             ],
           ),
