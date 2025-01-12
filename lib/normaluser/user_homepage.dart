@@ -1,15 +1,32 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
+import 'package:flutter/material.dart';
+import 'package:projects/normaluser/Chatscreen.dart'; // Change this import to match the new file name
+import 'booking_form.dart';
+import 'chatbot.dart';
 import 'viewService.dart';
 import 'bookings.dart';
 import 'inbox.dart';
 import 'profile.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Import Google Maps package
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Add this import for Firebase Auth
+
+Future<void> requestLocationPermission() async {
+  var status = await Permission.location.request();
+  if (status.isGranted) {
+    print("Location permission granted.");
+  } else if (status.isDenied) {
+    print("Location permission denied.");
+  } else if (status.isPermanentlyDenied) {
+    print("Location permission permanently denied. Open app settings.");
+  }
+}
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -83,6 +100,17 @@ class _UserHomepageState extends State<UserHomepage> {
             ),
           ],
         ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            // Replace this with your AI chatbot screen navigation logic
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ChatBotScreen()),
+            );
+          },
+          child: const Icon(Icons.chat),
+          backgroundColor: Color(0xFF4AA94E),
+        ),
       ),
     );
   }
@@ -96,60 +124,72 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   bool _showMore = false;
   String _searchQuery = '';
-  String _currentLocation = 'Loading...'; // **Added variable to store location**
+  String _currentLocation = 'Loading...';
 
   late GoogleMapController mapController;
+  final currentUser = FirebaseAuth.instance.currentUser;
+  final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // **Fetch current location when the page loads**
   Future<void> _getUserLocation() async {
     try {
-      // Check if location service is enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
-          _currentLocation = 'Location services are disabled.'; // **Error message for location service**
+          _currentLocation = 'Please enable location services.';
         });
         return;
       }
 
-      // Check for location permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.deniedForever) {
+          setState(() {
+            _currentLocation = 'Location permissions are permanently denied. Please enable them in settings.';
+          });
+          return;
+        }
         if (permission == LocationPermission.denied) {
           setState(() {
-            _currentLocation = 'Location permission denied'; // **Error message for location permission**
+            _currentLocation = 'Location permission denied.';
           });
           return;
         }
       }
 
-      // Get the current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
       setState(() {
         _currentLocation =
-        '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}'; // **Display the latitude and longitude**
+        '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
       });
 
-      // Move the camera to the user's location
-      mapController.moveCamera(CameraUpdate.newLatLng(
-        LatLng(position.latitude, position.longitude),
-      ));
-
+      if (mapController != null) {
+        mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(position.latitude, position.longitude),
+            15,
+          ),
+        );
+      } else {
+        setState(() {
+          _currentLocation = 'Map controller is not initialized.';
+        });
+      }
     } catch (e) {
       setState(() {
-        _currentLocation = 'Failed to get location: $e'; // **Error handling for location fetching**
+        _currentLocation = 'Failed to get location. Please try again.';
       });
+      print('Error getting location: $e');
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _getUserLocation(); // **Call the method to fetch location on initialization**
+    _getUserLocation();
   }
 
   final List<String> categories = [
@@ -190,54 +230,50 @@ class _HomePageContentState extends State<HomePageContent> {
     return _showMore ? categories : categories.take(8).toList();
   }
 
-  final Map<String, List<Map<String, String>>> services = {
-    'Plumbing': [
-      {
-        'provider': 'John\'s Plumbing',
-        'service': 'Plumbing',
-        'price': 'RM100 - RM300',
-        'rating': '4.5',
-        'location': 'Johor Bahru, Johor',
-        'image': 'images/plumbing.png',
-      },
-    ],
-    'Electrical': [
-      {
-        'provider': 'Reliable Electricians',
-        'service': 'Electrical',
-        'price': 'RM150 - RM500',
-        'rating': '4.7',
-        'location': 'Melaka',
-        'image': 'images/electrical.png',
-      },
-    ],
-    'Cleaning': [
-      {
-        'provider': 'Super Clean Services',
-        'service': 'Cleaning',
-        'price': 'RM80 - RM200',
-        'rating': '4.8',
-        'location': 'Kuala Lumpur',
-        'image': 'images/cleaning.png',
-      },
-    ],
-  };
-
-  List<Widget> _getServiceCards() {
+  Future<List<Map<String, String>>> _fetchServices() async {
     List<Map<String, String>> serviceList = [];
+    try {
+      QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
+          .collection('services')
+          .get();
 
-    if (selectedCategory == null || selectedCategory == 'All') {
-      services.forEach((_, value) {
-        serviceList.addAll(value);
-      });
-    } else if (services.containsKey(selectedCategory)) {
-      serviceList = services[selectedCategory!]!;
+      for (var serviceDoc in serviceSnapshot.docs) {
+        String userId = serviceDoc['userId'];
+
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          serviceList.add({
+            'description': serviceDoc['description'] ?? 'Unknown Description',
+            'price': serviceDoc['price'] ?? 'Unknown Price',
+            'service': serviceDoc['service'] ?? 'Unknown Service',
+            'providerId': userId,
+            'companyName': userDoc['companyName'] ?? 'Unknown Company',
+            'location': userDoc['location'] ?? 'Unknown Location',
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching services: $e");
+    }
+
+    return serviceList;
+  }
+
+  List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
+    if (selectedCategory != null && selectedCategory != 'All') {
+      serviceList = serviceList.where((service) {
+        return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
+      }).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
@@ -257,144 +293,160 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     return serviceList.map((service) {
+      String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
+
       return ServiceCard(
-        providerName: service['provider']!,
-        serviceType: service['service']!,
-        serviceName: service['service']!,
-        rangePrice: service['price']!,
-        rating: double.parse(service['rating']!),
-        location: service['location']!,
-        image: service['image']!,
+        serviceType: service['service'] ?? 'Unknown Type',
+        serviceName: service['service'] ?? 'Unknown Service',
+        rangePrice: service['price'] ?? 'N/A',
+        rating: double.tryParse(service['rating'] ?? '0') ?? 0.0,
+        location: service['location'] ?? 'Unknown Location',
+        companyName: service['companyName'] ?? 'Unknown Company',
+        providerId: service['providerId'] ?? '',
+        imagePath: imagePath,
       );
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(30.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Image.asset(
-                'images/logo1.png',
-                width: 100,
-                height: 100,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search services, provider, or category',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.search, color: Colors.black),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15.0),
+    return FutureBuilder<List<Map<String, String>>>(
+      future: _fetchServices(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error fetching services'));
+        }
+
+        List<Map<String, String>> services = snapshot.data ?? [];
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(30.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Image.asset(
+                    'images/logo1.png',
+                    width: 100,
+                    height: 100,
+                  ),
                 ),
-                contentPadding: EdgeInsets.symmetric(vertical: 15.0),
-                fillColor: Colors.white,
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Categories',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 5.0,
-              runSpacing: 20.0,
-              children: _getVisibleCategories().map((category) {
-                return GestureDetector(
-                  onTap: () {
+                const SizedBox(height: 8),
+                TextField(
+                  onChanged: (value) {
                     setState(() {
-                      selectedCategory = category == 'All' ? null : category;
+                      _searchQuery = value;
                     });
                   },
-                  child: Container(
-                    width: (MediaQuery.of(context).size.width - 80) / 4,
-                    child: CategoryCard(
-                      image: Image.asset(
-                        categoryIcons[category]!,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
+                  decoration: InputDecoration(
+                    hintText: 'Search services, provider, or category',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.search, color: Colors.black),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15.0),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
+                    fillColor: Colors.white,
+                    filled: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Categories',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 5.0,
+                  runSpacing: 20.0,
+                  children: _getVisibleCategories().map((category) {
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedCategory = category == 'All' ? null : category;
+                        });
+                      },
+                      child: Container(
+                        width: (MediaQuery.of(context).size.width - 80) / 4,
+                        child: CategoryCard(
+                          image: Image.asset(
+                            categoryIcons[category]!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                          ),
+                          category: category,
+                        ),
                       ),
-                      category: category,
+                    );
+                  }).toList(),
+                ),
+                Align(
+                  alignment: Alignment.center,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _showMore = !_showMore;
+                      });
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _showMore ? 'Collapse' : 'More Category',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.blue,
+                            decorationThickness: 2,
+                          ),
+                        ),
+                        Icon(
+                          _showMore ? Icons.arrow_upward : Icons.arrow_downward,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showMore = !_showMore;
-                  });
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _showMore ? 'Collapse' : 'More Category',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Colors.blue,
-                        decorationThickness: 2,
-                      ),
-                    ),
-                    Icon(
-                      _showMore ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: Colors.blue,
-                      size: 16,
-                    ),
-                  ],
                 ),
-              ),
-            ),
-            SizedBox(height: 20),
-            const Text(
-              'Available Services',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-            ),
-            SizedBox(height: 10),
-            // **Location Display**
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(
-                'Your Location: $_currentLocation', // **Show current location**
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-              ),
-            ),
-            // Google Maps Widget
-            SizedBox(
-              height: 250, // Adjust height as needed
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(0.0, 0.0), // Default initial location
-                  zoom: 10,
+                const SizedBox(height: 20),
+                const Text(
+                  'Available Services',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
-                onMapCreated: (GoogleMapController controller) {
-                  mapController = controller;
-                },
-              ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    'Your Location: $_currentLocation',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                ),
+                SizedBox(
+                  height: 250,
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: LatLng(3.1390, 101.6869),
+                      zoom: 10,
+                    ),
+                    onMapCreated: (GoogleMapController controller) {
+                      mapController = controller;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Column(children: _getServiceCards(services)),
+              ],
             ),
-            // **Service Cards**
-            Column(children: _getServiceCards()),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
