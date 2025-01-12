@@ -8,7 +8,7 @@ class PaymentScreen extends StatefulWidget {
   final String providerId;
   final String finalPrice;
 
-  PaymentScreen({
+  const PaymentScreen({
     required this.bookingId,
     required this.userId,
     required this.providerId,
@@ -22,7 +22,13 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   String selectedPaymentType = 'Credit Card';
   String? selectedBank;
-  final List<String> banks = ['Bank Islam', 'Maybank', 'CIMB', 'RHB', 'Public Bank'];
+  final List<Map<String, String>> banks = [
+    {'name': 'Bank Islam', 'logo': 'images/bank_islam.png'},
+    {'name': 'Maybank', 'logo': 'images/maybank.png'},
+    {'name': 'CIMB', 'logo': 'images/cimb.png'},
+    {'name': 'RHB', 'logo': 'images/rhb.png'},
+    {'name': 'Public Bank', 'logo': 'images/public_bank.png'},
+  ];
   final TextEditingController cardNumberController = TextEditingController();
   final TextEditingController cardExpiryController = TextEditingController();
   final TextEditingController cardCVVController = TextEditingController();
@@ -30,13 +36,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> submitPayment() async {
     if (selectedPaymentType == 'Credit Card' &&
-        (cardNumberController.text.isEmpty || cardExpiryController.text.isEmpty || cardCVVController.text.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all credit card details')));
+        (cardNumberController.text.isEmpty ||
+            cardExpiryController.text.isEmpty ||
+            cardCVVController.text.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all credit card details')),
+      );
       return;
     }
 
     if (selectedPaymentType == 'FPX' && selectedBank == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a bank')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a bank')),
+      );
       return;
     }
 
@@ -64,11 +76,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
           .doc(widget.bookingId)
           .update({'status': 'Completed'});
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment successful!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment successful!')),
+      );
 
       Navigator.pop(context); // Navigate back to the previous screen
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     } finally {
       setState(() {
         isSubmitting = false;
@@ -76,82 +92,154 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Make Payment'),
         backgroundColor: Colors.blue,
+        elevation: 2.0,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Final Price: RM${widget.finalPrice}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            const Text('Select Payment Type', style: TextStyle(fontSize: 16)),
-            DropdownButton<String>(
-              value: selectedPaymentType,
-              items: ['Credit Card', 'FPX']
-                  .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedPaymentType = value!;
-                  selectedBank = null; // Reset selected bank for FPX
-                });
-              },
-            ),
-            if (selectedPaymentType == 'Credit Card') ...[
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Final Price: RM${widget.finalPrice}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
               const SizedBox(height: 20),
-              const Text('Credit Card Details', style: TextStyle(fontSize: 16)),
-              TextField(
-                controller: cardNumberController,
-                decoration: const InputDecoration(labelText: 'Card Number'),
-                keyboardType: TextInputType.number,
+              const Text(
+                'Select Payment Type',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              TextField(
-                controller: cardExpiryController,
-                decoration: const InputDecoration(labelText: 'Expiry Date (MM/YY)'),
-              ),
-              TextField(
-                controller: cardCVVController,
-                decoration: const InputDecoration(labelText: 'CVV'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-            if (selectedPaymentType == 'FPX') ...[
-              const SizedBox(height: 20),
-              const Text('Select Bank', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
               DropdownButton<String>(
-                value: selectedBank,
-                items: banks
-                    .map((bank) => DropdownMenuItem(value: bank, child: Text(bank)))
+                value: selectedPaymentType,
+                items: ['Credit Card', 'FPX']
+                    .map((type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(
+                    type,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ))
                     .toList(),
                 onChanged: (value) {
                   setState(() {
-                    selectedBank = value!;
+                    selectedPaymentType = value!;
+                    selectedBank = null; // Reset selected bank for FPX
                   });
                 },
+                isExpanded: true,
+              ),
+              if (selectedPaymentType == 'Credit Card') ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Credit Card Details',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 10),
+                _buildTextField(
+                  controller: cardNumberController,
+                  labelText: 'Card Number',
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+                _buildTextField(
+                  controller: cardExpiryController,
+                  labelText: 'Expiry Date (MM/YY)',
+                  keyboardType: TextInputType.datetime,
+                ),
+                const SizedBox(height: 10),
+                _buildTextField(
+                  controller: cardCVVController,
+                  labelText: 'CVV',
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+              if (selectedPaymentType == 'FPX') ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Select Bank',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 10),
+                DropdownButton<String>(
+                  value: selectedBank,
+                  items: banks
+                      .map((bank) => DropdownMenuItem<String>(
+                    value: bank['name'],
+                    child: Row(
+                      children: [
+                        Image.asset(
+                          bank['logo']!,
+                          width: 30, // Adjust the size as needed
+                          height: 30,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          bank['name']!,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedBank = value!;
+                    });
+                  },
+                  isExpanded: true,
+                ),
+              ],
+              const SizedBox(height: 30),
+              Center(
+                child: ElevatedButton(
+                  onPressed: isSubmitting ? null : submitPayment,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(200, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                  ),
+                  child: isSubmitting
+                      ? const CircularProgressIndicator(
+                    color: Colors.white,
+                  )
+                      : const Text(
+                    'Submit Payment',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
             ],
-            const SizedBox(height: 30),
-            Center(
-              child: ElevatedButton(
-                onPressed: isSubmitting ? null : submitPayment,
-                child: isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Submit Payment'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required TextInputType keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: labelText,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      ),
+      keyboardType: keyboardType,
     );
   }
 }

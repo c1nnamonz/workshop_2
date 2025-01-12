@@ -15,27 +15,26 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   String? finalPrice;
   String? customerPriceRequest;
   String? providerPriceRequest;
-  String? paymentStatus; // Add this to store the payment status
+  String? paymentStatus;
+  bool isPriceRequestAccepted = false;
 
   @override
   void initState() {
     super.initState();
     status = widget.booking['status'] ?? 'Pending';
-    paymentStatus = widget.booking['paymentStatus']; // Fetch payment status
+    paymentStatus = widget.booking['paymentStatus'];
     _fetchBookingDetails();
   }
 
   Future<void> _fetchBookingDetails() async {
     final bookingId = widget.booking['bookingId'];
 
-    // Fetch booking details first
     final bookingDoc = await FirebaseFirestore.instance.collection('bookings').doc(bookingId).get();
     final data = bookingDoc.data();
 
-    // Fetch payment details
     final paymentSnapshot = await FirebaseFirestore.instance
         .collection('payments')
-        .where('bookingId', isEqualTo: bookingId) // Use bookingId to find the payment record
+        .where('bookingId', isEqualTo: bookingId)
         .limit(1)
         .get();
 
@@ -50,10 +49,10 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
       finalPrice = data?['Final Price'];
       customerPriceRequest = data?['Customer price request'];
       providerPriceRequest = data?['Provider price request'];
-      paymentStatus = fetchedPaymentStatus; // Use the fetched payment status
+      paymentStatus = fetchedPaymentStatus;
+      isPriceRequestAccepted = finalPrice == customerPriceRequest;
     });
   }
-
 
   Future<void> _updateBookingStatus(String newStatus, {String? finalPrice, String? providerPriceRequest}) async {
     final bookingId = widget.booking['bookingId'];
@@ -81,11 +80,36 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   Future<void> _acceptPriceRequest() async {
     if (customerPriceRequest != null) {
       await _updateBookingStatus(status, finalPrice: customerPriceRequest);
+
+      setState(() {
+        isPriceRequestAccepted = true;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Price request accepted.')),
       );
     }
   }
+
+
+  Future<void> _cancelService(BuildContext context) async {
+    final bookingId = widget.booking['bookingId'];
+    final dataToUpdate = {
+      'status': 'Cancelled',
+      'cancelledAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update(dataToUpdate);
+
+    setState(() {
+      status = 'Cancelled';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Service cancelled.')),
+    );
+  }
+
 
   void _makeProviderPriceRequest(BuildContext context) {
     final TextEditingController priceController = TextEditingController();
@@ -180,12 +204,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
     );
   }
 
-  void _cancelService(BuildContext context) async {
-    await _updateBookingStatus('Cancelled');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Service cancelled.')),
-    );
-  }
 
   @override
   void didChangeDependencies() {
@@ -242,13 +260,23 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               const SizedBox(height: 10),
               Text('Provider Price Request: $providerPriceRequest', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
             ],
-            const SizedBox(height: 20),
+            if (customerPriceRequest != null && status != 'Cancelled' && !isPriceRequestAccepted) ...[
+              ElevatedButton(
+                onPressed: _acceptPriceRequest,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: const Text('Accept Customer Price Request'),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+
             if (paymentStatus == 'Paid') ...[
               // Green tick symbol to indicate payment
               const Icon(Icons.check_circle, color: Colors.green, size: 30),
               const SizedBox(height: 20),
             ],
-            if (paymentStatus != 'Paid') ...[
+
+            if (paymentStatus != 'Paid' && status != 'Cancelled') ...[
               ElevatedButton(
                 onPressed: () => _makeProviderPriceRequest(context),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
@@ -266,7 +294,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                     child: const Text('Accept'),
                   ),
                   ElevatedButton(
-                    onPressed: () => _declineBooking(context),
+                    onPressed: () => _cancelService(context),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     child: const Text('Decline'),
                   ),
@@ -278,8 +306,19 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Cancel Service'),
               ),
-            ] else ...[
-              const SizedBox.shrink(),
+            ],
+
+            if (status == 'Cancelled') ...[
+              const Divider(height: 40),
+              const Text(
+                'Booking Status: Cancelled',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              const SizedBox(height: 10),
+              const Text('This booking was cancelled by the user or provider.', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              Text('Cancellation Reason: ${widget.booking['cancellationReason'] ?? 'Not provided'}', style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 10),
             ],
           ],
         ),

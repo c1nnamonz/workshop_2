@@ -124,17 +124,17 @@ class BookingCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  if (onAcceptProviderRequest != null)
+                    ElevatedButton(
+                      onPressed: onAcceptProviderRequest,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                      child: const Text('Accept Provider Request', style: TextStyle(color: Colors.white),),
+                    ),
                   if (onEditPrice != null)
                     ElevatedButton(
                       onPressed: onEditPrice,
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                      child: const Text('Edit Price'),
-                    ),
-                  if (onAcceptProviderRequest != null)
-                    ElevatedButton(
-                      onPressed: onAcceptProviderRequest,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      child: const Text('Accept Provider Request'),
+                      child: const Text('Edit Price', style: TextStyle(color: Colors.white),),
                     ),
                 ],
               ),
@@ -157,8 +157,8 @@ class BookingCard extends StatelessWidget {
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  child: const Text('Make Payment'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Make Payment',style: TextStyle(color: Colors.white),),
                 ),
               ),
             ],

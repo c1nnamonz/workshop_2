@@ -234,8 +234,8 @@ class _HomePageContentState extends State<HomePageContent> {
     return _showMore ? categories : categories.take(8).toList();
   }
 
-  Future<List<Map<String, String>>> _fetchServices() async {
-    List<Map<String, String>> serviceList = [];
+  Future<List<Map<String, dynamic>>> _fetchServices() async {
+    List<Map<String, dynamic>> serviceList = [];
     try {
       QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
           .collection('services')
@@ -255,6 +255,7 @@ class _HomePageContentState extends State<HomePageContent> {
             'description': serviceDoc['description'] ?? 'Unknown Description',
             'price': serviceDoc['price'] ?? 'Unknown Price',
             'service': serviceDoc['service'] ?? 'Unknown Service',
+            'rating': serviceDoc['rating'] ?? 0.0,  // Fetch the rating
             'providerId': userId, // Ensure the providerId is included
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
@@ -270,7 +271,8 @@ class _HomePageContentState extends State<HomePageContent> {
 
 
 
-  List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
+
+  List<Widget> _getServiceCards(List<Map<String, dynamic>> serviceList) {
     if (selectedCategory != null && selectedCategory != 'All') {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
@@ -280,7 +282,7 @@ class _HomePageContentState extends State<HomePageContent> {
     if (_searchQuery.isNotEmpty) {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
@@ -370,7 +372,7 @@ class _HomePageContentState extends State<HomePageContent> {
           serviceType: service['service'] ?? 'Unknown Type',
           serviceName: service['service'] ?? 'Unknown Service',
           rangePrice: service['price'] ?? 'N/A',
-          rating: double.tryParse(service['rating'] ?? '0') ?? 0.0,
+          rating: (service['rating'] ?? 0.0).toDouble(), // Pass the rating as a double
           location: service['location'] ?? 'Unknown Location',
           companyName: service['companyName'] ?? 'Unknown Company',
           providerId: service['providerId'] ?? '',
@@ -383,8 +385,8 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, String>>>(
-      future: _fetchServices(), // Fetch services when the page loads
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchServices(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
@@ -394,7 +396,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return Center(child: Text('Error fetching services'));
         }
 
-        List<Map<String, String>> services = snapshot.data ?? [];
+        List<Map<String, dynamic>> services = snapshot.data ?? [];
 
         return SingleChildScrollView(
           child: Padding(
