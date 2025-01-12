@@ -11,23 +11,23 @@ class _ServicesManagerState extends State<ServicesManager> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String? _userId; // Dynamically set user ID from FirebaseAuth
-  List<Map<String, String>> _services = [];
-  final List<String> _availableServices = [
-    "Plumbing",
-    "Electrical",
-    "Air-cond",
-    "Cleaning",
-    "Renovation",
-    "Security",
-    "Landscaping",
-    "Pest Control",
-    "Appliance Repair",
-    "Furniture Assembly",
-    "Smart Home Installation",
-    "Pool Maintenance",
+  String? _userId;
+  List<Map<String, dynamic>> _services = [];
 
-  ]; // Predefined services
+  final List<String> _serviceNames = [
+    'Plumbing',
+    'Electrical',
+    'Air-cond',
+    'Cleaning',
+    'Renovation',
+    'Security',
+    'Landscaping',
+    'Pest Control',
+    'Appliance Repair',
+    'Furniture Assembly',
+    'Smart Home Installation',
+    'Pool Maintenance',
+  ];
 
   @override
   void initState() {
@@ -35,7 +35,6 @@ class _ServicesManagerState extends State<ServicesManager> {
     _initializeUser();
   }
 
-  // Initialize the user and fetch services
   Future<void> _initializeUser() async {
     User? currentUser = _auth.currentUser;
     if (currentUser == null) {
@@ -49,35 +48,39 @@ class _ServicesManagerState extends State<ServicesManager> {
       _userId = currentUser.uid;
     });
 
-    // Load services data from Firestore
     _loadServices();
   }
 
-  // Load services data from Firestore
   Future<void> _loadServices() async {
     if (_userId == null) return;
 
-    final snapshot = await _firestore
-        .collection("services")
-        .where("userId", isEqualTo: _userId)
-        .get();
+    try {
+      final snapshot = await _firestore
+          .collection("services")
+          .where("userId", isEqualTo: _userId)
+          .get();
 
-    setState(() {
-      _services = snapshot.docs.map((doc) {
-        return {
-          "service": doc["service"]?.toString() ?? "",
-          "description": doc["description"]?.toString() ?? "",
-          "price": doc["price"]?.toString() ?? "",
-          "docId": doc.id, // Store document ID for uniqueness
-        };
-      }).toList();
-    });
+      setState(() {
+        _services = snapshot.docs.map((doc) {
+          return {
+            "documentId": doc.id,
+            "service": doc["service"] ?? "",
+            "description": doc["description"] ?? "",
+            "price": doc["price"] ?? "",
+          };
+        }).toList();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load services: $e")),
+      );
+    }
   }
 
-  // Add a new empty service to the list
   void _addService() {
     setState(() {
       _services.add({
+        "documentId": null,
         "service": "",
         "description": "",
         "price": "",
@@ -85,43 +88,49 @@ class _ServicesManagerState extends State<ServicesManager> {
     });
   }
 
-  // Remove a service from the list
-  void _removeService(int index) {
+  Future<void> _removeService(int index) async {
+    final service = _services[index];
+    final documentId = service["documentId"];
+
+    if (documentId != null) {
+      try {
+        await _firestore.collection("services").doc(documentId).delete();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delete service: $e")),
+        );
+      }
+    }
+
     setState(() {
       _services.removeAt(index);
     });
   }
 
-  // Save services to Firestore, avoiding duplicates
   Future<void> _saveServices() async {
     if (_userId == null) return;
 
     try {
       for (var service in _services) {
-        if (service["service"]!.isNotEmpty) {
-          final existingServices = await _firestore
-              .collection("services")
-              .where("userId", isEqualTo: _userId)
-              .where("service", isEqualTo: service["service"])
-              .get();
+        final documentId = service["documentId"];
+        final serviceData = {
+          "userId": _userId,
+          "service": service["service"],
+          "description": service["description"],
+          "price": service["price"],
+        };
 
-          if (existingServices.docs.isEmpty) {
-            await _firestore.collection("services").add({
-              "userId": _userId,
-              "service": service["service"],
-              "description": service["description"],
-              "price": service["price"],
-            });
-          }
+        if (documentId == null) {
+          final docRef = await _firestore.collection("services").add(serviceData);
+          service["documentId"] = docRef.id;
+        } else {
+          await _firestore.collection("services").doc(documentId).update(serviceData);
         }
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Services saved successfully!")),
       );
-
-      // Reload services to reflect new additions
-      _loadServices();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to save services: $e")),
@@ -145,31 +154,30 @@ class _ServicesManagerState extends State<ServicesManager> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              // Display services
               ..._services.asMap().entries.map((entry) {
                 final index = entry.key;
                 final service = entry.value;
 
                 return Card(
-                  child: ListTile(
-                    title: DropdownButtonFormField<String>(
-                      value: (service["service"] ?? "").isEmpty ? null : service["service"],
-                      items: _availableServices.map((service) {
-                        return DropdownMenuItem<String>(
-                          value: service,
-                          child: Text(service),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _services[index]["service"] = value!;
-                        });
-                      },
-                      decoration: const InputDecoration(labelText: "Service"),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
                       children: [
+                        DropdownButtonFormField<String>(
+                          value: service["service"].isNotEmpty ? service["service"] : null,
+                          items: _serviceNames
+                              .map((name) => DropdownMenuItem(
+                            value: name,
+                            child: Text(name),
+                          ))
+                              .toList(),
+                          decoration: const InputDecoration(labelText: "Service Name"),
+                          onChanged: (value) {
+                            setState(() {
+                              _services[index]["service"] = value ?? "";
+                            });
+                          },
+                        ),
                         TextField(
                           controller: TextEditingController(text: service["description"]),
                           decoration: const InputDecoration(labelText: "Description"),
@@ -177,7 +185,6 @@ class _ServicesManagerState extends State<ServicesManager> {
                             _services[index]["description"] = value;
                           },
                         ),
-                        const SizedBox(height: 5),
                         TextField(
                           controller: TextEditingController(text: service["price"]),
                           decoration: const InputDecoration(labelText: "Price"),
@@ -185,11 +192,17 @@ class _ServicesManagerState extends State<ServicesManager> {
                             _services[index]["price"] = value;
                           },
                         ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _removeService(index),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _removeService(index),
                     ),
                   ),
                 );
@@ -211,20 +224,6 @@ class _ServicesManagerState extends State<ServicesManager> {
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                "Saved Services:",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              ..._services.map((service) {
-                if (service["service"]!.isNotEmpty) {
-                  return ListTile(
-                    title: Text(service["service"]!),
-                    subtitle: Text("Description: ${service["description"]}\nPrice: ${service["price"]}"),
-                  );
-                }
-                return Container();
-              }).toList(),
             ],
           ),
         ),
