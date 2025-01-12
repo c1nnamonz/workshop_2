@@ -6,6 +6,7 @@ import 'package:projects/widgets/BookingPage.dart';
 import 'package:projects/mppage/CompletedServicesPage.dart';
 import 'package:projects/mppage/AcceptedBookingsPage.dart';
 import 'package:projects/mppage/SalesPage.dart';
+import 'package:projects/widgets/MessagesPage.dart'; // Import MessagesPage
 
 class MaintenanceProviderHomePage extends StatefulWidget {
   const MaintenanceProviderHomePage({super.key});
@@ -28,7 +29,7 @@ class _MaintenanceProviderHomePageState
       _buildDashboard(),
       BookingPage(),
       const Center(child: Text('Inbox Page')),
-      const Center(child: Text('Chat Page')),
+      MessagesPage(), // Replace with MessagesPage
       MaintenanceProviderProfilePage(),
     ];
   }

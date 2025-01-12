@@ -4,8 +4,6 @@ import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
-import 'package:flutter/material.dart';
-import 'package:projects/normaluser/Chatscreen.dart'; // Change this import to match the new file name
 import 'booking_form.dart';
 import 'chatbot.dart';
 import 'viewService.dart';
@@ -15,7 +13,6 @@ import 'profile.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Add this import for Firebase Auth
 
 Future<void> requestLocationPermission() async {
   var status = await Permission.location.request();
@@ -27,6 +24,7 @@ Future<void> requestLocationPermission() async {
     print("Location permission permanently denied. Open app settings.");
   }
 }
+
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -127,11 +125,10 @@ class _HomePageContentState extends State<HomePageContent> {
   String _currentLocation = 'Loading...';
 
   late GoogleMapController mapController;
-  final currentUser = FirebaseAuth.instance.currentUser;
-  final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
   Future<void> _getUserLocation() async {
     try {
+      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
@@ -140,6 +137,7 @@ class _HomePageContentState extends State<HomePageContent> {
         return;
       }
 
+      // Check location permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -157,20 +155,23 @@ class _HomePageContentState extends State<HomePageContent> {
         }
       }
 
+      // Fetch the current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
+      // Update the location state
       setState(() {
         _currentLocation =
         '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
       });
 
+      // Update the map's camera position
       if (mapController != null) {
         mapController.animateCamera(
           CameraUpdate.newLatLngZoom(
             LatLng(position.latitude, position.longitude),
-            15,
+            15, // Adjust the zoom level (can be dynamic)
           ),
         );
       } else {
@@ -179,12 +180,14 @@ class _HomePageContentState extends State<HomePageContent> {
         });
       }
     } catch (e) {
+      // Handle exceptions
       setState(() {
         _currentLocation = 'Failed to get location. Please try again.';
       });
       print('Error getting location: $e');
     }
   }
+
 
   @override
   void initState() {
@@ -230,8 +233,8 @@ class _HomePageContentState extends State<HomePageContent> {
     return _showMore ? categories : categories.take(8).toList();
   }
 
-  Future<List<Map<String, String>>> _fetchServices() async {
-    List<Map<String, String>> serviceList = [];
+  Future<List<Map<String, dynamic>>> _fetchServices() async {
+    List<Map<String, dynamic>> serviceList = [];
     try {
       QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
           .collection('services')
@@ -240,6 +243,7 @@ class _HomePageContentState extends State<HomePageContent> {
       for (var serviceDoc in serviceSnapshot.docs) {
         String userId = serviceDoc['userId'];
 
+        // Fetch user details based on userId
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
@@ -250,7 +254,8 @@ class _HomePageContentState extends State<HomePageContent> {
             'description': serviceDoc['description'] ?? 'Unknown Description',
             'price': serviceDoc['price'] ?? 'Unknown Price',
             'service': serviceDoc['service'] ?? 'Unknown Service',
-            'providerId': userId,
+            'rating': serviceDoc['rating'] ?? 0.0,  // Fetch the rating
+            'providerId': userId, // Ensure the providerId is included
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
           });
@@ -263,7 +268,10 @@ class _HomePageContentState extends State<HomePageContent> {
     return serviceList;
   }
 
-  List<Widget> _getServiceCards(List<Map<String, String>> serviceList) {
+
+
+
+  List<Widget> _getServiceCards(List<Map<String, dynamic>> serviceList) {
     if (selectedCategory != null && selectedCategory != 'All') {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
@@ -273,7 +281,7 @@ class _HomePageContentState extends State<HomePageContent> {
     if (_searchQuery.isNotEmpty) {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
@@ -295,22 +303,89 @@ class _HomePageContentState extends State<HomePageContent> {
     return serviceList.map((service) {
       String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
 
-      return ServiceCard(
-        serviceType: service['service'] ?? 'Unknown Type',
-        serviceName: service['service'] ?? 'Unknown Service',
-        rangePrice: service['price'] ?? 'N/A',
-        rating: double.tryParse(service['rating'] ?? '0') ?? 0.0,
-        location: service['location'] ?? 'Unknown Location',
-        companyName: service['companyName'] ?? 'Unknown Company',
-        providerId: service['providerId'] ?? '',
-        imagePath: imagePath,
+      return GestureDetector(
+        onTap: () {
+          // Dialog showing service details
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      imagePath, // Use the preset image path here
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.cover,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      service['service'] ?? 'Unknown Service',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text('Price: ${service['price'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Rating: ${service['rating']?.toStringAsFixed(1) ?? '0.0'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Location: ${service['location'] ?? 'Unknown Location'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingForm(
+                                  providerId: service['providerId'] ?? '',
+                                  serviceName: service['service'] ?? '',
+                                  price: service['price'] ?? '',
+                                  description: service['description'] ?? '',
+                                  companyName: service['companyName'] ?? '',
+                                  location: service['location'] ?? '',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Book Now'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {},
+                          child: const Text('Chat'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        child: ServiceCard(
+          serviceType: service['service'] ?? 'Unknown Type',
+          serviceName: service['service'] ?? 'Unknown Service',
+          rangePrice: service['price'] ?? 'N/A',
+          rating: (service['rating'] ?? 0.0).toDouble(), // Pass the rating as a double
+          location: service['location'] ?? 'Unknown Location',
+          companyName: service['companyName'] ?? 'Unknown Company',
+          providerId: service['providerId'] ?? '',
+          imagePath: imagePath, // Use dynamic image path
+        ),
       );
     }).toList();
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, String>>>(
+    return FutureBuilder<List<Map<String, dynamic>>>(
       future: _fetchServices(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -321,7 +396,7 @@ class _HomePageContentState extends State<HomePageContent> {
           return Center(child: Text('Error fetching services'));
         }
 
-        List<Map<String, String>> services = snapshot.data ?? [];
+        List<Map<String, dynamic>> services = snapshot.data ?? [];
 
         return SingleChildScrollView(
           child: Padding(
@@ -375,13 +450,14 @@ class _HomePageContentState extends State<HomePageContent> {
                         width: (MediaQuery.of(context).size.width - 80) / 4,
                         child: CategoryCard(
                           image: Image.asset(
-                            categoryIcons[category]!,
+                            categoryIcons[category]!, // Assumes 'categoryIcons' is a map with categories as keys
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
                           ),
-                          category: category,
+                          category: category, // Pass the category string directly
                         ),
+
                       ),
                     );
                   }).toList(),
@@ -432,7 +508,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   height: 250,
                   child: GoogleMap(
                     initialCameraPosition: const CameraPosition(
-                      target: LatLng(3.1390, 101.6869),
+                      target: LatLng(3.1390, 101.6869), // Example: Kuala Lumpur's coordinates
                       zoom: 10,
                     ),
                     onMapCreated: (GoogleMapController controller) {
