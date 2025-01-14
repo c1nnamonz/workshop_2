@@ -27,7 +27,7 @@ class _MaintenanceProviderHomePageState
       _buildDashboard(),
       BookingPage(), // BookingPage widget
       const Center(child: Text('Inbox Page')), // Placeholder for Inbox
-      MessagesPage(), // Placeholder for Chat
+      MessagesPage(loggedInUserId: '',), // Placeholder for Chat
       MaintenanceProviderProfilePage(), // Correct reference to ProfilePage widget
     ];
   }
