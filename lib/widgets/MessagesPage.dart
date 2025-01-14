@@ -3,9 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projects/widgets/ChatPage.dart';
 
 class MessagesPage extends StatefulWidget {
-  final String loggedInUserId; // Add this to store the logged-in user's ID
-
-  const MessagesPage({super.key, required this.loggedInUserId}); // Update constructor
+  const MessagesPage({super.key});
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -57,16 +55,9 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
 
         var chats = snapshot.data!.docs;
 
-        // Filter chats to include only those involving the logged-in user
-        var filteredChats = chats.where((chat) {
-          String senderId = chat['senderId'];
-          String receiverId = chat['receiverId'];
-          return senderId == widget.loggedInUserId || receiverId == widget.loggedInUserId;
-        }).toList();
-
         // Group messages by chat participants (senderId and receiverId)
         Map<String, QueryDocumentSnapshot> latestMessages = {};
-        for (var chat in filteredChats) {
+        for (var chat in chats) {
           String senderId = chat['senderId'];
           String receiverId = chat['receiverId'];
 
@@ -114,15 +105,12 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                 String senderName = userDetailsSnapshot.data?['senderName'] ?? 'Unknown User';
                 String receiverName = userDetailsSnapshot.data?['receiverName'] ?? 'Unknown User';
 
-                // Determine the other user's name (not the logged-in user)
-                String otherUserName = senderId == widget.loggedInUserId ? receiverName : senderName;
-
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.blue.shade100,
-                    child: Text(otherUserName[0]), // First letter of the other user's name
+                    child: Text(senderName[0]), // First letter of the sender's name
                   ),
-                  title: Text(otherUserName),
+                  title: Text(senderName),
                   subtitle: Text(chat['message']),
                   trailing: Text(
                     chat['timestamp'].toDate().toString(),
