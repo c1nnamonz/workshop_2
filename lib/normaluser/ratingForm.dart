@@ -45,9 +45,31 @@ class _RatingFormState extends State<RatingForm> {
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rating and comment submitted successfully!')),
-        );
+        // Calculate the average rating for the service
+        QuerySnapshot ratingSnapshot = await _firestore
+            .collection('ratings')
+            .where('serviceId', isEqualTo: _serviceId)
+            .get();
+
+        if (ratingSnapshot.docs.isNotEmpty) {
+          double totalRating = 0.0;
+
+          for (var doc in ratingSnapshot.docs) {
+            totalRating += doc['rating'];
+          }
+
+          double averageRating = totalRating / ratingSnapshot.docs.length;
+
+          // Update the average rating in the services collection
+          await _firestore.collection('services').doc(_serviceId).update({
+            'rating': averageRating,
+          });
+
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Rating and comment submitted successfully! Average rating updated.')),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Booking not found!')),
@@ -63,6 +85,7 @@ class _RatingFormState extends State<RatingForm> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
