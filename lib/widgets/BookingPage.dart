@@ -45,30 +45,30 @@ class BookingPage extends StatelessWidget {
   Tooltip _getStatusIcon(String status) {
     switch (status) {
       case 'Pending':
-        return Tooltip(
+        return const Tooltip(
           message: 'Pending: Booking request not yet accepted or declined.',
-          child: const Icon(Icons.access_time, color: Colors.orange),
+          child: Icon(Icons.access_time, color: Colors.orange),
         ); // Clock icon
       case 'Completed':
-        return Tooltip(
+        return const Tooltip(
           message: 'Completed: Service has been completed.',
-          child: const Icon(Icons.check_circle, color: Colors.green),
+          child: Icon(Icons.check_circle, color: Colors.green),
         ); // Green checkmark icon
-      case 'Cancel':
+      case 'Cancelled':
       case 'Rejected':
-        return Tooltip(
+        return const Tooltip(
           message: 'Canceled/Declined: Booking canceled by client/provider or declined.',
-          child: const Icon(Icons.cancel, color: Colors.red),
+          child: Icon(Icons.cancel, color: Colors.red),
         ); // Red X icon
       case 'Ongoing':
-        return Tooltip(
+        return const Tooltip(
           message: 'Ongoing: Booking is accepted but service not yet completed.',
-          child: const Icon(Icons.calendar_today, color: Colors.blue),
+          child: Icon(Icons.calendar_today, color: Colors.blue),
         ); // Calendar icon
       default:
-        return Tooltip(
+        return const Tooltip(
           message: 'Unknown status.',
-          child: const Icon(Icons.help_outline, color: Colors.grey),
+          child: Icon(Icons.help_outline, color: Colors.grey),
         ); // Default help icon
     }
   }

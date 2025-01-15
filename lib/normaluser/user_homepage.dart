@@ -1,10 +1,12 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
+import 'Chatscreen.dart';
 import 'booking_form.dart';
 import 'chatbot.dart';
 import 'viewService.dart';
@@ -71,8 +73,15 @@ class _UserHomepageState extends State<UserHomepage> {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
-        body: _pages[_selectedIndex],
+        body: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('images/chatbguser.png'), // Set the path to your background image
+              fit: BoxFit.cover, // Make sure the image covers the entire screen
+            ),
+          ),
+          child: _pages[_selectedIndex],
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
@@ -108,12 +117,13 @@ class _UserHomepageState extends State<UserHomepage> {
             );
           },
           child: const Icon(Icons.chat),
-          backgroundColor: Color(0xFF4AA94E),
+          backgroundColor: const Color(0xFF4AA94E),
         ),
       ),
     );
   }
 }
+
 
 class HomePageContent extends StatefulWidget {
   @override
@@ -361,9 +371,24 @@ class _HomePageContentState extends State<HomePageContent> {
                         ),
 
                         ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            String userId = FirebaseAuth.instance.currentUser!.uid; // Get current user ID
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  providerId: service['providerId'] ?? '',
+                                  userId: userId, // Pass the current user ID
+                                  otherUserName: service['companyName'] ?? 'Unknown Company',
+                                  otherUserId: service['providerId'] ?? '',
+                                ),
+                              ),
+                            );
+                          },
                           child: const Text('Chat'),
                         ),
+
                       ],
                     ),
                   ],
@@ -393,11 +418,11 @@ class _HomePageContentState extends State<HomePageContent> {
       future: _fetchServices(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error fetching services'));
+          return const Center(child: Text('Error fetching services'));
         }
 
         List<Map<String, dynamic>> services = snapshot.data ?? [];

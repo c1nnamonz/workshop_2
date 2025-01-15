@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
+import 'package:projects/mppage/OngoingBookings.dart';
 import 'package:projects/mppage/profile_page.dart';
 import 'package:projects/widgets/BookingPage.dart';
 import 'package:projects/mppage/CompletedServicesPage.dart';
-import 'package:projects/mppage/AcceptedBookingsPage.dart';
 import 'package:projects/mppage/SalesPage.dart';
-import 'package:projects/widgets/MessagesPage.dart'; // Import MessagesPage
+import 'package:projects/widgets/MessagesPage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MaintenanceProviderHomePage extends StatefulWidget {
   const MaintenanceProviderHomePage({super.key});
@@ -29,69 +31,121 @@ class _MaintenanceProviderHomePageState
       _buildDashboard(),
       BookingPage(),
       const Center(child: Text('Inbox Page')),
-      MessagesPage(), // Replace with MessagesPage
+      MessagesPage(), // Retained MessagesPage
       MaintenanceProviderProfilePage(),
     ];
   }
 
+  Future<Map<String, int>> _fetchCounts() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      final providerId = user.uid;
+
+      // Count Ongoing Bookings
+      final ongoingSnapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('providerId', isEqualTo: providerId)
+          .where('status', isEqualTo: 'Ongoing')
+          .get();
+
+      // Count Completed Services
+      final completedSnapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('providerId', isEqualTo: providerId)
+          .where('status', isEqualTo: 'Completed')
+          .get();
+
+      return {
+        'ongoing': ongoingSnapshot.docs.length,
+        'completed': completedSnapshot.docs.length,
+      };
+    }
+
+    return {'ongoing': 0, 'completed': 0};
+  }
+
   Widget _buildDashboard() {
     double totalSales = salesPage.getTotalSales(); // Retrieve the total sales dynamically
-    return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("images/mppage_bg4.png"), // Background image
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dashboard',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black45),
+    return FutureBuilder<Map<String, int>>(
+      future: _fetchCounts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || snapshot.data == null) {
+          return const Center(child: Text('Error fetching counts.'));
+        }
+
+        final counts = snapshot.data!;
+        final totalOngoingBookings = counts['ongoing'] ?? 0;
+        final totalCompletedServices = counts['completed'] ?? 0;
+
+        return Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage("images/mppage_bg4.png"), // Background image
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 20),
-            _buildDashboardItem(
-              title: 'Total Bookings',
-              value: '120',
-              icon: Icons.calendar_today,
-              color: Colors.blue,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => AcceptedBookingsPage()),
-                );
-              },
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dashboard',
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black45),
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  title: 'Total Bookings',
+                  value: totalOngoingBookings.toString(),
+                  icon: Icons.calendar_today,
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            OngoingBookingsPage(bookings: []), // Update logic
+                      ),
+                    );
+                  },
+                ),
+                _buildDashboardItem(
+                  title: 'Services Completed',
+                  value: totalCompletedServices.toString(),
+                  icon: Icons.check_circle_outline,
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => CompletedServicesPage()),
+                    );
+                  },
+                ),
+                _buildDashboardItem(
+                  title: 'Total Sales',
+                  value: '\$${totalSales.toStringAsFixed(2)}',
+                  icon: Icons.monetization_on,
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SalesPage()),
+                    );
+                  },
+                ),
+              ],
             ),
-            _buildDashboardItem(
-              title: 'Services Completed',
-              value: '95',
-              icon: Icons.check_circle_outline,
-              color: Colors.green,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => CompletedServicesPage()),
-                );
-              },
-            ),
-            _buildDashboardItem(
-              title: 'Total Sales',
-              value: '\$${totalSales.toStringAsFixed(2)}',
-              icon: Icons.monetization_on,
-              color: Colors.orange,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SalesPage()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -124,9 +178,12 @@ class _MaintenanceProviderHomePageState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                      Text(title,
+                          style: const TextStyle(fontSize: 16, color: Colors.grey)),
                       const SizedBox(height: 8),
-                      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text(value,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],

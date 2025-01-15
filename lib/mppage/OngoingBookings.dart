@@ -44,14 +44,14 @@ class OngoingBookingsPage extends StatelessWidget {
   Tooltip _getStatusIcon(String status) {
     switch (status) {
       case 'Ongoing':
-        return Tooltip(
+        return const Tooltip(
           message: 'Ongoing: Booking is accepted but not yet completed.',
-          child: const Icon(Icons.calendar_today, color: Colors.blue),
+          child: Icon(Icons.calendar_today, color: Colors.blue),
         );
       default:
-        return Tooltip(
+        return const Tooltip(
           message: 'Unknown status.',
-          child: const Icon(Icons.help_outline, color: Colors.grey),
+          child: Icon(Icons.help_outline, color: Colors.grey),
         );
     }
   }

@@ -22,8 +22,8 @@ class _InboxPageState extends State<InboxPage> {
         automaticallyImplyLeading: false,
         flexibleSpace: SafeArea(
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(width: 16.0),
@@ -61,7 +61,7 @@ class _InboxPageState extends State<InboxPage> {
                   ),
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
                   setState(() {
@@ -95,25 +95,21 @@ class _InboxPageState extends State<InboxPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
-          .where('senderId', whereIn: [userId]) // Fetch messages where the current user is the sender
+          .where('senderId', isEqualTo: userId) // Fetch messages where the current user is the sender
           .orderBy('timestamp', descending: true) // Order by timestamp to get the latest messages first
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         }
 
         var chats = snapshot.data!.docs;
 
-        // Group messages by chat participants (senderId and receiverId)
         Map<String, QueryDocumentSnapshot> latestMessages = {};
         for (var chat in chats) {
           String receiverId = chat['receiverId'];
-
-          // Create a unique key for each chat pair
           String chatKey = _generateChatKey(userId, receiverId);
 
-          // Store only the latest message for each chat pair
           if (!latestMessages.containsKey(chatKey)) {
             latestMessages[chatKey] = chat;
           }
@@ -123,11 +119,11 @@ class _InboxPageState extends State<InboxPage> {
           future: _fetchUserDetailsForChats(latestMessages.values.toList()),
           builder: (context, userDetailsSnapshot) {
             if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (userDetailsSnapshot.hasError) {
-              return Center(child: Text('Error fetching user details'));
+              return const Center(child: Text('Error fetching user details'));
             }
 
             List<Map<String, dynamic>> userDetails = userDetailsSnapshot.data ?? [];
@@ -138,11 +134,28 @@ class _InboxPageState extends State<InboxPage> {
                 var chat = latestMessages.values.toList()[index];
                 var userDetail = userDetails[index];
 
-                String receiverName = userDetail['receiverName'] ?? 'Unknown User';
+                String receiverName = userDetail['receiverName'] ?? 'Unknown Company';
+                String profileImageUrl = userDetail['profileImageUrl'] ?? '';
+                String messagePreview = chat['message'];
 
                 return ListTile(
-                  title: Text(receiverName), // Display full name
-                  subtitle: Text(chat['message']), // Display latest message
+                  leading: CircleAvatar(
+                    backgroundImage: profileImageUrl.isNotEmpty
+                        ? NetworkImage(profileImageUrl)
+                        : AssetImage('assets/default_avatar.png') as ImageProvider,
+                    radius: 25,
+                  ),
+                  title: Text(
+                    receiverName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    messagePreview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -170,32 +183,27 @@ class _InboxPageState extends State<InboxPage> {
 
     for (var chat in chats) {
       String receiverId = chat['receiverId'];
-      print('Fetching details for receiverId: $receiverId'); // Debug log
 
       try {
         DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
         if (receiverDoc.exists) {
-          String firstName = receiverDoc['firstName'] ?? '';
-          String lastName = receiverDoc['lastName'] ?? '';
-          String receiverName = '$firstName $lastName'.trim(); // Combine first and last name
-          if (receiverName.isEmpty) {
-            receiverName = 'Unknown User'; // Fallback if both fields are empty
-          }
-          print('Fetched receiverName: $receiverName'); // Debug log
+          String companyName = receiverDoc['companyName'] ?? 'Unknown Company';
+          String profileImageUrl = receiverDoc['profileImageUrl'] ?? '';
 
           userDetails.add({
-            'receiverName': receiverName,
+            'receiverName': companyName,
+            'profileImageUrl': profileImageUrl,
           });
         } else {
-          print('Receiver document does not exist for receiverId: $receiverId'); // Debug log
           userDetails.add({
-            'receiverName': 'Unknown User',
+            'receiverName': 'Unknown Company',
+            'profileImageUrl': '',
           });
         }
       } catch (e) {
-        print('Error fetching user details for receiverId: $receiverId, error: $e'); // Debug log
         userDetails.add({
           'receiverName': 'Error loading name',
+          'profileImageUrl': '',
         });
       }
     }
@@ -219,10 +227,10 @@ class _InboxPageState extends State<InboxPage> {
   Widget _buildNotificationItem(
       {required String title, required String message, required String time}) {
     return ListTile(
-      leading: Icon(Icons.notifications, color: Colors.green),
+      leading: const Icon(Icons.notifications, color: Colors.green),
       title: Text(
         title,
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       ),
       subtitle: Text(
         message,
@@ -230,17 +238,16 @@ class _InboxPageState extends State<InboxPage> {
       ),
       trailing: Text(
         time,
-        style: TextStyle(color: Colors.grey, fontSize: 12),
+        style: const TextStyle(color: Colors.grey, fontSize: 12),
       ),
-      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       dense: true,
     );
   }
 
-  // Helper function to generate a unique key for each chat pair
   String _generateChatKey(String senderId, String receiverId) {
     List<String> ids = [senderId, receiverId];
-    ids.sort(); // Ensure the key is consistent regardless of sender/receiver order
+    ids.sort();
     return ids.join('_');
   }
 }
