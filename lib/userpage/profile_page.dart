@@ -1,10 +1,7 @@
-
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -13,17 +10,30 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+
   final String _userId = "12345"; // Replace with dynamic user ID logic
 
-  String _name = "";
-  int _age = 0;
-  String _location = "";
-  String _availability = "";
-  double _rating = 0.0;
+  // Profile details
+  String _name = "John Doe";
+  int _age = 30;
+  String _location = "Kuala Lumpur, Malaysia";
+  String _availability = "Monday - Friday, 9:00 AM - 6:00 PM";
+  double _rating = 4.5;
   String? _profileImageUrl;
-  List<Map<String, String>> _services = [];
+  List<Map<String, String>> _services = [
+    {
+      "service": "Plumbing",
+      "description": "Fixing pipes, leaks, and other plumbing issues.",
+      "price": "RM150 - RM400"
+    },
+    {
+      "service": "Electrical",
+      "description": "Wiring, repairs, and electrical installations.",
+      "price": "RM200 - RM500"
+    },
+  ];
 
+  // Controllers for editing fields
   late TextEditingController _nameController;
   late TextEditingController _ageController;
   late TextEditingController _locationController;
@@ -34,26 +44,18 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _ageController = TextEditingController();
-    _locationController = TextEditingController();
-    _availabilityController = TextEditingController();
+    _nameController = TextEditingController(text: _name);
+    _ageController = TextEditingController(text: _age.toString());
+    _locationController = TextEditingController(text: _location);
+    _availabilityController = TextEditingController(text: _availability);
+
+    // Load profile data from Firestore
     _loadProfile();
   }
 
-
-
   void _loadProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User not logged in!")),
-      );
-      return;
-    }
-
     final DocumentSnapshot snapshot =
-    await _firestore.collection("profiles").doc(user.uid).get();
+    await _firestore.collection("profiles").doc(_userId).get();
 
     if (snapshot.exists) {
       final data = snapshot.data() as Map<String, dynamic>;
@@ -64,31 +66,19 @@ class _ProfilePageState extends State<ProfilePage> {
         _availability = data["availability"] ?? _availability;
         _rating = data["rating"]?.toDouble() ?? _rating;
         _profileImageUrl = data["profileImageUrl"];
-        _services = List<Map<String, String>>.from(data["services"] ?? _services);
+        _services = List<Map<String, String>>.from(
+            data["services"] ?? _services);
       });
 
-      // Update controllers
+      // Update controllers with the fetched data
       _nameController.text = _name;
       _ageController.text = _age.toString();
       _locationController.text = _location;
       _availabilityController.text = _availability;
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No profile data found.")),
-      );
     }
   }
 
-
-  Future<void> _saveProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User not logged in!")),
-      );
-      return;
-    }
-
+  void _saveProfile() async {
     final profileData = {
       "name": _nameController.text,
       "age": int.tryParse(_ageController.text) ?? _age,
@@ -100,7 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
     };
 
     try {
-      await _firestore.collection("profiles").doc(user.uid).set(profileData);
+      await _firestore.collection("profiles").doc(_userId).set(profileData);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Profile updated successfully!")),
       );
@@ -111,7 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -120,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final file = File(pickedFile.path);
       final fileName = "$_userId-profile-picture.jpg";
       try {
-        final ref = FirebaseStorage.instance.ref().child("profile_images/$fileName");
+        final ref = _storage.ref().child("profile_images/$fileName");
         await ref.putFile(file);
         final imageUrl = await ref.getDownloadURL();
         setState(() {
@@ -137,10 +126,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-
   void _toggleEditing() {
     setState(() {
       if (_isEditing) {
+        // Save profile when exiting edit mode
         _saveProfile();
       }
       _isEditing = !_isEditing;
@@ -177,24 +166,73 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              TextField(controller: _nameController, enabled: _isEditing, decoration: const InputDecoration(labelText: "Name")),
+              TextField(
+                controller: _nameController,
+                enabled: _isEditing,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _ageController, enabled: _isEditing, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Age")),
+              TextField(
+                controller: _ageController,
+                enabled: _isEditing,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Age"),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _locationController, enabled: _isEditing, decoration: const InputDecoration(labelText: "Location")),
+              TextField(
+                controller: _locationController,
+                enabled: _isEditing,
+                decoration: const InputDecoration(labelText: "Location"),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _availabilityController, enabled: _isEditing, decoration: const InputDecoration(labelText: "Availability")),
+              TextField(
+                controller: _availabilityController,
+                enabled: _isEditing,
+                decoration: const InputDecoration(labelText: "Availability"),
+              ),
               const SizedBox(height: 20),
               const Divider(),
-              const Text("Services Offered", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ..._services.map((service) => ListTile(
-                title: Text(service['service'] ?? ""),
-                subtitle: Text(service['description'] ?? ""),
-              )),
+              const Text("Services Offered",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ..._services.asMap().entries.map((entry) {
+                final index = entry.key;
+                final service = entry.value;
+                return Card(
+                  child: ListTile(
+                    title: _isEditing
+                        ? TextField(
+                      decoration:
+                      const InputDecoration(labelText: "Service"),
+                      controller: TextEditingController(
+                          text: service["service"]),
+                      onChanged: (value) {
+                        _services[index]["service"] = value;
+                      },
+                    )
+                        : Text(service["service"] ?? ""),
+                    subtitle: _isEditing
+                        ? TextField(
+                      decoration:
+                      const InputDecoration(labelText: "Description"),
+                      controller: TextEditingController(
+                          text: service["description"]),
+                      onChanged: (value) {
+                        _services[index]["description"] = value;
+                      },
+                    )
+                        : Text(service["description"] ?? ""),
+                  ),
+                );
+              }).toList(),
+              const Divider(),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _storage {
+  static ref() {}
 }

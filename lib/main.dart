@@ -17,7 +17,6 @@ void main() {
           appId: "1:1087849438293:web:99eb5bee6a544227e8c8dc",
           measurementId: "G-9QEHEEZNF7"));
 
-
   runApp(const MyApp());
 }
 
@@ -32,8 +31,5 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-
-
 
 

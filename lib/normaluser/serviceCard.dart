@@ -1,84 +1,60 @@
 import 'package:flutter/material.dart';
 
 class ServiceCard extends StatelessWidget {
+  final String providerName;
   final String serviceType;
   final String serviceName;
   final String rangePrice;
   final double rating;
   final String location;
-  final String companyName;
-  final String providerId;
-  final String imagePath; // Add imagePath field
+  final String image;
 
-  ServiceCard({
+  const ServiceCard({
+    required this.providerName,
     required this.serviceType,
     required this.serviceName,
     required this.rangePrice,
     required this.rating,
     required this.location,
-    required this.companyName,
-    required this.providerId,
-    required this.imagePath, // Include the image path in constructor
-  });
+    required this.image,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
+      margin: const EdgeInsets.symmetric(vertical: 10),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(10.0),
         child: Row(
           children: [
-            // Image section - Display service icon/image
             Image.asset(
-              imagePath,
-              width: 60,
-              height: 60,
+              image,
+              width: 80,
+              height: 80,
               fit: BoxFit.cover,
             ),
-            const SizedBox(width: 15),
-            // Service Details
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    serviceName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    providerName,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Company: $companyName',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Location: $location',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Price Range: $rangePrice',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  Text(serviceType),
+                  Text(location),
+                  Text('Price: $rangePrice'),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.orange, size: 16),
+                      Text('$rating'),
+                    ],
                   ),
                 ],
               ),
-            ),
-            // Rating Section
-            Column(
-              children: [
-                const Icon(Icons.star, color: Colors.orange, size: 20),
-                Text(
-                  rating.toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ],
             ),
           ],
         ),

@@ -1,8 +1,5 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:projects/auth/login_screen.dart';
@@ -56,60 +53,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  String _userName = "John Doe";
   String _userEmail = "johndoe@example.com";
-  String _firstName = "";
-  String _lastName = "";
   String? _profileImage;
   String _userBirthday = "1990-01-01";
   String _userPhone = "1234567890";
   String _userGender = "Male";
-  String? _userId;  // Store the logged-in user's ID
 
   final ImagePicker _picker = ImagePicker();
-
-  @override
-  void initState() {
-    super.initState();
-    _getUserProfile();
-  }
-
-  Future<void> _getUserProfile() async {
-    // Get the current user from Firebase Authentication
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      setState(() {
-        _userId = user.uid;  // Automatically set the user ID
-      });
-      // Now fetch data from Firestore using the user ID
-      _fetchUserData(_userId!);
-    } else {
-      print('User is not logged in');
-    }
-  }
-
-  Future<void> _fetchUserData(String userId) async {
-    try {
-      var userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)  // Fetch data based on the logged-in user ID
-          .get();
-
-      if (userDoc.exists) {
-        setState(() {
-          _firstName = userDoc['firstName'] ?? "";
-          _lastName = userDoc['lastName'] ?? "";
-          _userEmail = userDoc['email'] ?? "";
-          _userPhone = userDoc['phoneNumber'] ?? "";
-          _userBirthday = userDoc['birthday'] ?? "1990-01-01";
-          _userGender = userDoc['gender'] ?? "Male";
-        });
-      } else {
-        print('User not found');
-      }
-    } catch (e) {
-      print('Error fetching user data: $e');
-    }
-  }
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -120,51 +71,24 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _updateUserProfile() async {
-    if (_userId != null) {
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(_userId).update({
-          'firstName': _firstName,
-          'lastName': _lastName,
-          'phoneNumber': _userPhone,
-          'birthday': _userBirthday,
-          'gender': _userGender,
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile updated successfully!')),
-        );
-      } catch (e) {
-        print('Error updating profile: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile.')),
-        );
-      }
-    }
-  }
-
   void _navigateToEditProfile() {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
             EditProfilePage(
-              firstName: _firstName, // Passing first name instead of username
-              lastName: _lastName, // Passing last name
+              userName: _userName,
               birthday: _userBirthday,
               phone: _userPhone,
               gender: _userGender,
-              onSave: (String firstName, String lastName, String birthday, String phone,
+              onSave: (String name, String birthday, String phone,
                   String gender) {
                 setState(() {
-                  _firstName = firstName;
-                  _lastName = lastName;
+                  _userName = name;
                   _userBirthday = birthday;
                   _userPhone = phone;
                   _userGender = gender;
                 });
-                // Call the update function to save the changes
-                _updateUserProfile();
               },
             ),
       ),
@@ -172,10 +96,32 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _logout() {
-    FirebaseAuth.instance.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Log Out'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+              child: const Text('Log Out'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -214,7 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '$_firstName $_lastName',
+                    _userName,
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 5),
