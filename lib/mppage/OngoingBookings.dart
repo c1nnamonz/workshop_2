@@ -3,22 +3,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:projects/widgets/BookingDetailsPage.dart';
 
-class CompletedServicesPage extends StatelessWidget {
-  const CompletedServicesPage({Key? key}) : super(key: key);
+class OngoingBookingsPage extends StatelessWidget {
+  const OngoingBookingsPage({Key? key, required List<Map<String, dynamic>> bookings}) : super(key: key);
 
   Future<String?> _getProviderId() async {
     final user = FirebaseAuth.instance.currentUser;
     return user?.uid; // Get the current user's ID
   }
 
-  Future<List<Map<String, dynamic>>> _fetchCompletedBookings(String providerId) async {
+  Future<List<Map<String, dynamic>>> _fetchOngoingBookings(String providerId) async {
     final bookingsSnapshot = await FirebaseFirestore.instance
         .collection('bookings')
         .where('providerId', isEqualTo: providerId)
-        .where('status', isEqualTo: 'Completed') // Filter for completed bookings
+        .where('status', isEqualTo: 'Ongoing') // Filter for ongoing bookings
         .get();
 
-    List<Map<String, dynamic>> completedBookings = [];
+    List<Map<String, dynamic>> ongoingBookings = [];
 
     for (var doc in bookingsSnapshot.docs) {
       final bookingData = doc.data();
@@ -27,7 +27,7 @@ class CompletedServicesPage extends StatelessWidget {
 
       if (userSnapshot.exists) {
         final userData = userSnapshot.data()!;
-        completedBookings.add({
+        ongoingBookings.add({
           'bookingId': doc.id,
           'customerName': '${userData['firstName']} ${userData['lastName']}',
           'service': bookingData['serviceName'],
@@ -38,15 +38,15 @@ class CompletedServicesPage extends StatelessWidget {
         });
       }
     }
-    return completedBookings;
+    return ongoingBookings;
   }
 
   Tooltip _getStatusIcon(String status) {
     switch (status) {
-      case 'Completed':
+      case 'Ongoing':
         return Tooltip(
-          message: 'Completed: Service has been completed.',
-          child: const Icon(Icons.check_circle, color: Colors.green),
+          message: 'Ongoing: Booking is accepted but not yet completed.',
+          child: const Icon(Icons.calendar_today, color: Colors.blue),
         );
       default:
         return Tooltip(
@@ -70,28 +70,28 @@ class CompletedServicesPage extends StatelessWidget {
         final providerId = snapshot.data!;
 
         return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _fetchCompletedBookings(providerId),
+          future: _fetchOngoingBookings(providerId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return const Center(child: Text('Error fetching completed bookings.'));
+              return const Center(child: Text('Error fetching ongoing bookings.'));
             }
-            final completedBookings = snapshot.data ?? [];
+            final ongoingBookings = snapshot.data ?? [];
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Completed Services'),
+                title: const Text('Ongoing Bookings'),
               ),
-              body: completedBookings.isEmpty
+              body: ongoingBookings.isEmpty
                   ? const Center(
-                child: Text('No completed bookings available.'),
+                child: Text('No ongoing bookings available.'),
               )
                   : ListView.builder(
                 padding: const EdgeInsets.all(16.0),
-                itemCount: completedBookings.length,
+                itemCount: ongoingBookings.length,
                 itemBuilder: (context, index) {
-                  final booking = completedBookings[index];
+                  final booking = ongoingBookings[index];
                   final status = booking['status'];
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8.0),
