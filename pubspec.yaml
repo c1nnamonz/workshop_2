@@ -49,6 +49,7 @@ dependencies:
   google_generative_ai: ^0.4.6
   intl: ^0.17.0
   firebase_storage: ^12.3.7
+  flutter_rating_bar: ^4.0.0
 
 
 dev_dependencies:

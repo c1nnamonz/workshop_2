@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projects/normaluser/payment.dart';
+import 'package:projects/normaluser/ratingForm.dart';
 
 import '../auth/firebase_utils.dart';
 
@@ -20,6 +21,7 @@ class BookingCard extends StatelessWidget {
   final IconData icon;
   final Color? iconColor;
   final bool showPaymentButton;
+  final bool showRatingButton; // NEW: Added this line
   final VoidCallback? onEditPrice;
   final VoidCallback? onAcceptProviderRequest;
 
@@ -38,9 +40,20 @@ class BookingCard extends StatelessWidget {
     required this.icon,
     this.iconColor,
     this.showPaymentButton = false,
+    this.showRatingButton = false, // NEW: Added this line
     this.onEditPrice,
     this.onAcceptProviderRequest,
   });
+
+  // Define the method to show the rating form
+  void showRatingForm(BuildContext context, String bookingId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RatingForm(bookingId: bookingId),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,12 +171,27 @@ class BookingCard extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Make Payment',style: TextStyle(color: Colors.white),),
+                  child: const Text('Make Payment', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+            if (showRatingButton) ...[ // NEW: Added this block
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: ElevatedButton(
+                  onPressed: () {
+                    showRatingForm(context, bookingId); // NEW: Call to show the rating form
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  child: const Text('Rate this Service', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
 
+
           ],
+
         ),
       ),
     );
@@ -412,6 +440,7 @@ class BookingsPage extends StatelessWidget {
                                 price: data['price'],
                                 finalPrice: data['Final Price'],
                                 rating: data['rating'],
+                                showRatingButton: true, // Show the "Rate this Service" button
                               );
                             },
                           );
@@ -419,6 +448,7 @@ class BookingsPage extends StatelessWidget {
                       );
                     },
                   ),
+
 
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance

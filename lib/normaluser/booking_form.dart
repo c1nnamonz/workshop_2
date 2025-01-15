@@ -6,6 +6,7 @@ import '../auth/firebase_utils.dart';
 
 class BookingForm extends StatefulWidget {
   final String providerId; // The service provider's document ID
+  final String serviceId; // The service document ID
   final String serviceName; // The service name
   final String price;
   final String description;
@@ -14,6 +15,7 @@ class BookingForm extends StatefulWidget {
 
   BookingForm({
     required this.providerId,
+    required this.serviceId,
     required this.serviceName,
     required this.price,
     required this.description,
@@ -29,7 +31,7 @@ class _BookingFormState extends State<BookingForm> {
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _problemDescriptionController = TextEditingController(); // New controller for Problem Description
+  final TextEditingController _problemDescriptionController = TextEditingController();
 
   String selectedLocation = 'Select Location';
   LatLng? selectedCoordinates;
@@ -84,7 +86,7 @@ class _BookingFormState extends State<BookingForm> {
     String bookingDate = _dateController.text;
     String bookingTime = _timeController.text;
     String location = selectedLocation;
-    String problemDescription = _problemDescriptionController.text; // Get Problem Description input
+    String problemDescription = _problemDescriptionController.text;
 
     if (bookingDate.isEmpty ||
         bookingTime.isEmpty ||
@@ -110,6 +112,7 @@ class _BookingFormState extends State<BookingForm> {
       await FirebaseFirestore.instance.collection('bookings').add({
         'userId': userId,
         'providerId': widget.providerId,
+        'serviceId': widget.serviceId, // Add the service ID here
         'serviceName': widget.serviceName,
         'price': widget.price,
         'description': widget.description,
@@ -119,9 +122,9 @@ class _BookingFormState extends State<BookingForm> {
           'latitude': selectedCoordinates?.latitude,
           'longitude': selectedCoordinates?.longitude,
         },
-        'bookingDate': bookingDate, // Add booking date
-        'bookingTime': bookingTime, // Add booking time
-        'problemDescription': problemDescription, // Add Problem Description
+        'bookingDate': bookingDate,
+        'bookingTime': bookingTime,
+        'problemDescription': problemDescription,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'Pending', // Add the status field with value 'Pending'
       });
@@ -296,4 +299,3 @@ class _BookingFormState extends State<BookingForm> {
     );
   }
 }
-

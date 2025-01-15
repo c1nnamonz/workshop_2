@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
@@ -251,10 +252,11 @@ class _HomePageContentState extends State<HomePageContent> {
 
         if (userDoc.exists) {
           serviceList.add({
+            'id': serviceDoc.id, // Add the document ID here
             'description': serviceDoc['description'] ?? 'Unknown Description',
             'price': serviceDoc['price'] ?? 'Unknown Price',
             'service': serviceDoc['service'] ?? 'Unknown Service',
-            'rating': serviceDoc['rating'] ?? 0.0,  // Fetch the rating
+            'rating': serviceDoc['rating'] ?? 0.0, // Fetch the rating
             'providerId': userId, // Ensure the providerId is included
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
@@ -271,6 +273,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
 
 
+
   List<Widget> _getServiceCards(List<Map<String, dynamic>> serviceList) {
     if (selectedCategory != null && selectedCategory != 'All') {
       serviceList = serviceList.where((service) {
@@ -281,7 +284,7 @@ class _HomePageContentState extends State<HomePageContent> {
     if (_searchQuery.isNotEmpty) {
       serviceList = serviceList.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
@@ -330,7 +333,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     const SizedBox(height: 5),
                     Text('Price: ${service['price'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
-                    Text('Rating: ${service['rating']?.toStringAsFixed(1) ?? '0.0'}', style: const TextStyle(fontSize: 16)),
+                    Text('Rating: ${service['rating'] ?? '0'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
                     Text('Location: ${service['location'] ?? 'Unknown Location'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 20),
@@ -344,6 +347,7 @@ class _HomePageContentState extends State<HomePageContent> {
                               MaterialPageRoute(
                                 builder: (context) => BookingForm(
                                   providerId: service['providerId'] ?? '',
+                                  serviceId: service['id'] ?? '', // Include the serviceId here
                                   serviceName: service['service'] ?? '',
                                   price: service['price'] ?? '',
                                   description: service['description'] ?? '',
@@ -355,6 +359,7 @@ class _HomePageContentState extends State<HomePageContent> {
                           },
                           child: const Text('Book Now'),
                         ),
+
                         ElevatedButton(
                           onPressed: () {},
                           child: const Text('Chat'),
@@ -380,7 +385,6 @@ class _HomePageContentState extends State<HomePageContent> {
       );
     }).toList();
   }
-
 
 
   @override
