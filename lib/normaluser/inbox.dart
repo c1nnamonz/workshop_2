@@ -90,12 +90,11 @@ class _InboxPageState extends State<InboxPage> {
 
   Widget _buildChatsSection() {
     final currentUser = _auth.currentUser;
-    final userId = currentUser?.uid ?? '';
+    final userId = currentUser?.uid ?? ''; // Get the logged-in user's ID
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
-          .where('senderId', whereIn: [userId]) // Fetch messages where the current user is the sender
           .orderBy('timestamp', descending: true) // Order by timestamp to get the latest messages first
           .snapshots(),
       builder: (context, snapshot) {
@@ -105,13 +104,21 @@ class _InboxPageState extends State<InboxPage> {
 
         var chats = snapshot.data!.docs;
 
+        // Filter messages to include only those where the logged-in user is either the sender or the receiver
+        chats = chats.where((chat) {
+          String senderId = chat['senderId'];
+          String receiverId = chat['receiverId'];
+          return senderId == userId || receiverId == userId;
+        }).toList();
+
         // Group messages by chat participants (senderId and receiverId)
         Map<String, QueryDocumentSnapshot> latestMessages = {};
         for (var chat in chats) {
+          String senderId = chat['senderId'];
           String receiverId = chat['receiverId'];
 
           // Create a unique key for each chat pair
-          String chatKey = _generateChatKey(userId, receiverId);
+          String chatKey = _generateChatKey(senderId, receiverId);
 
           // Store only the latest message for each chat pair
           if (!latestMessages.containsKey(chatKey)) {
@@ -120,7 +127,7 @@ class _InboxPageState extends State<InboxPage> {
         }
 
         return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _fetchUserDetailsForChats(latestMessages.values.toList()),
+          future: _fetchUserDetailsForChats(latestMessages.values.toList(), userId),
           builder: (context, userDetailsSnapshot) {
             if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
@@ -138,20 +145,21 @@ class _InboxPageState extends State<InboxPage> {
                 var chat = latestMessages.values.toList()[index];
                 var userDetail = userDetails[index];
 
-                String receiverName = userDetail['receiverName'] ?? 'Unknown User';
+                String otherUserName = userDetail['otherUserName'] ?? 'Unknown User';
+                String otherUserId = userDetail['otherUserId'] ?? '';
 
                 return ListTile(
-                  title: Text(receiverName), // Display full name
+                  title: Text(otherUserName), // Display full name
                   subtitle: Text(chat['message']), // Display latest message
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatScreen(
-                          providerId: chat['receiverId'],
+                          providerId: otherUserId,
                           userId: userId,
-                          otherUserName: receiverName,
-                          otherUserId: chat['receiverId'],
+                          otherUserName: otherUserName,
+                          otherUserId: otherUserId,
                         ),
                       ),
                     );
@@ -165,37 +173,41 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _fetchUserDetailsForChats(List<QueryDocumentSnapshot> chats) async {
+  Future<List<Map<String, dynamic>>> _fetchUserDetailsForChats(List<QueryDocumentSnapshot> chats, String userId) async {
     List<Map<String, dynamic>> userDetails = [];
 
     for (var chat in chats) {
+      String senderId = chat['senderId'];
       String receiverId = chat['receiverId'];
-      print('Fetching details for receiverId: $receiverId'); // Debug log
+
+      // Determine the other user's ID (the one who is not the logged-in user)
+      String otherUserId = senderId == userId ? receiverId : senderId;
 
       try {
-        DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
-        if (receiverDoc.exists) {
-          String firstName = receiverDoc['firstName'] ?? '';
-          String lastName = receiverDoc['lastName'] ?? '';
-          String receiverName = '$firstName $lastName'.trim(); // Combine first and last name
-          if (receiverName.isEmpty) {
-            receiverName = 'Unknown User'; // Fallback if both fields are empty
+        DocumentSnapshot otherUserDoc = await _firestore.collection('users').doc(otherUserId).get();
+        if (otherUserDoc.exists) {
+          String firstName = otherUserDoc['firstName'] ?? '';
+          String lastName = otherUserDoc['lastName'] ?? '';
+          String otherUserName = '$firstName $lastName'.trim(); // Combine first and last name
+          if (otherUserName.isEmpty) {
+            otherUserName = 'Unknown User'; // Fallback if both fields are empty
           }
-          print('Fetched receiverName: $receiverName'); // Debug log
 
           userDetails.add({
-            'receiverName': receiverName,
+            'otherUserName': otherUserName,
+            'otherUserId': otherUserId,
           });
         } else {
-          print('Receiver document does not exist for receiverId: $receiverId'); // Debug log
           userDetails.add({
-            'receiverName': 'Unknown User',
+            'otherUserName': 'Unknown User',
+            'otherUserId': otherUserId,
           });
         }
       } catch (e) {
-        print('Error fetching user details for receiverId: $receiverId, error: $e'); // Debug log
+        print('Error fetching user details for otherUserId: $otherUserId, error: $e'); // Debug log
         userDetails.add({
-          'receiverName': 'Error loading name',
+          'otherUserName': 'Error loading name',
+          'otherUserId': otherUserId,
         });
       }
     }
