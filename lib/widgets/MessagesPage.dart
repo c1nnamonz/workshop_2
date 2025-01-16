@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Add this import
 import 'package:projects/widgets/ChatPage.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -12,11 +14,48 @@ class MessagesPage extends StatefulWidget {
 class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance; // Add this line
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _setupNotifications(); // Call the notification setup function
+  }
+
+  // Set up Firebase Messaging
+  void _setupNotifications() async {
+    // Request permission for notifications (required for iOS)
+    NotificationSettings settings = await _firebaseMessaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('User granted permission for notifications');
+
+      // Listen for incoming messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('Received a new message: ${message.notification?.title}');
+
+        // Show a notification
+        _showNotification(
+          title: message.notification?.title ?? 'New Message',
+          body: message.notification?.body ?? 'You have a new message',
+        );
+      });
+    } else {
+      print('User declined or has not accepted notification permissions');
+    }
+  }
+
+  // Show a notification
+  void _showNotification({required String title, required String body}) {
+    // Use a package like `flutter_local_notifications` to display notifications
+    // Example: https://pub.dev/packages/flutter_local_notifications
+    print('Notification: $title - $body');
   }
 
   @override
@@ -43,6 +82,9 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
   }
 
   Widget _buildChatList({required bool isOngoing}) {
+    final currentUser = _auth.currentUser;
+    final userId = currentUser?.uid ?? ''; // Get the logged-in user's ID
+
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
@@ -54,6 +96,13 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
         }
 
         var chats = snapshot.data!.docs;
+
+        // Filter messages to include only those where the logged-in user is either the sender or the receiver
+        chats = chats.where((chat) {
+          String senderId = chat['senderId'];
+          String receiverId = chat['receiverId'];
+          return senderId == userId || receiverId == userId;
+        }).toList();
 
         // Group messages by chat participants (senderId and receiverId)
         Map<String, QueryDocumentSnapshot> latestMessages = {};
@@ -77,8 +126,11 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             String senderId = chat['senderId'];
             String receiverId = chat['receiverId'];
 
+            // Determine the other user's ID (the one who is not the logged-in user)
+            String otherUserId = senderId == userId ? receiverId : senderId;
+
             return FutureBuilder<Map<String, String>>(
-              future: _fetchUserDetails(senderId, receiverId),
+              future: _fetchUserDetails(otherUserId),
               builder: (context, userDetailsSnapshot) {
                 if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
                   return ListTile(
@@ -102,15 +154,14 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                   );
                 }
 
-                String senderName = userDetailsSnapshot.data?['senderName'] ?? 'Unknown User';
-                String receiverName = userDetailsSnapshot.data?['receiverName'] ?? 'Unknown User';
+                String otherUserName = userDetailsSnapshot.data?['name'] ?? 'Unknown User';
 
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.blue.shade100,
-                    child: Text(senderName[0]), // First letter of the sender's name
+                    child: Text(otherUserName[0]), // First letter of the other user's name
                   ),
-                  title: Text(senderName),
+                  title: Text(otherUserName),
                   subtitle: Text(chat['message']),
                   trailing: Text(
                     chat['timestamp'].toDate().toString(),
@@ -122,8 +173,8 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatPage(
-                          providerId: receiverId,
-                          userId: senderId,
+                          providerId: otherUserId,
+                          userId: userId,
                         ),
                       ),
                     );
@@ -137,36 +188,19 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     );
   }
 
-  Future<Map<String, String>> _fetchUserDetails(String senderId, String receiverId) async {
+  Future<Map<String, String>> _fetchUserDetails(String userId) async {
     try {
-      // Fetch sender details
-      DocumentSnapshot senderDoc = await _firestore.collection('users').doc(senderId).get();
-      String senderFirstName = senderDoc['firstName'] ?? '';
-      String senderLastName = senderDoc['lastName'] ?? '';
-      String senderName = '$senderFirstName $senderLastName'.trim(); // Combine first and last name
-      if (senderName.isEmpty) {
-        senderName = 'Unknown User'; // Fallback if both fields are empty
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+      String firstName = userDoc['firstName'] ?? '';
+      String lastName = userDoc['lastName'] ?? '';
+      String name = '$firstName $lastName'.trim(); // Combine first and last name
+      if (name.isEmpty) {
+        name = 'Unknown User'; // Fallback if both fields are empty
       }
-
-      // Fetch receiver details
-      DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
-      String receiverFirstName = receiverDoc['firstName'] ?? '';
-      String receiverLastName = receiverDoc['lastName'] ?? '';
-      String receiverName = '$receiverFirstName $receiverLastName'.trim(); // Combine first and last name
-      if (receiverName.isEmpty) {
-        receiverName = 'Unknown User'; // Fallback if both fields are empty
-      }
-
-      return {
-        'senderName': senderName,
-        'receiverName': receiverName,
-      };
+      return {'name': name};
     } catch (e) {
       print('Error fetching user details: $e');
-      return {
-        'senderName': 'Unknown User',
-        'receiverName': 'Unknown User',
-      };
+      return {'name': 'Unknown User'};
     }
   }
 
