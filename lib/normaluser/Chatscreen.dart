@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'ReportPage.dart';
+
 class ChatScreen extends StatefulWidget {
   final String providerId;
   final String userId;
@@ -35,11 +37,52 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Function to handle reporting a user
+  void _reportUser() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportPage(
+          reportedUserId: widget.providerId,
+          reportedUserName: widget.otherUserName,
+          reporterId: widget.userId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Chat with ${widget.otherUserName}'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.more_vert),
+            onPressed: () {
+              // Show a popup menu with the option to report the user
+              showMenu(
+                context: context,
+                position: RelativeRect.fromLTRB(
+                  MediaQuery.of(context).size.width,
+                  100,
+                  0,
+                  0,
+                ),
+                items: [
+                  PopupMenuItem(
+                    child: Text('Report User'),
+                    value: 'report',
+                  ),
+                ],
+              ).then((value) {
+                if (value == 'report') {
+                  _reportUser(); // Call the report function
+                }
+              });
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
