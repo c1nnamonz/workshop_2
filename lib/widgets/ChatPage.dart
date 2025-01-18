@@ -1,75 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatPage extends StatefulWidget {
   final String providerId;
   final String userId;
 
-  ChatPage({required this.providerId, required this.userId});
+  const ChatPage({
+    Key? key,
+    required this.providerId,
+    required this.userId,
+  }) : super(key: key);
 
   @override
   _ChatPageState createState() => _ChatPageState();
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final TextEditingController _messageController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String _userFullName = 'Loading...'; // To store the user's full name
-  String _providerFullName = 'Loading...'; // To store the provider's full name
-  String _chatTitle = 'Loading...'; // To store the chat title (e.g., "Chat with [Normal User]")
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchUserAndProviderNames(); // Fetch user and provider names when the page loads
-  }
-
-  // Method to fetch user and provider names
-  Future<void> _fetchUserAndProviderNames() async {
-    try {
-      // Fetch user details
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(widget.userId).get();
-      setState(() {
-        _userFullName = '${userDoc['firstName'] ?? 'Unknown'} ${userDoc['lastName'] ?? 'User'}';
-      });
-
-      // Fetch provider details
-      DocumentSnapshot providerDoc = await _firestore.collection('users').doc(widget.providerId).get();
-      setState(() {
-        _providerFullName = '${providerDoc['firstName'] ?? 'Unknown'} ${providerDoc['lastName'] ?? 'Provider'}';
-      });
-
-      // Determine the chat title based on user roles
-      setState(() {
-        _chatTitle = 'Chat with $_userFullName';
-      });
-    } catch (e) {
-      print('Error fetching user or provider details: $e');
-      setState(() {
-        _userFullName = 'Error loading name';
-        _providerFullName = 'Error loading name';
-        _chatTitle = 'Error loading chat title';
-      });
-    }
-  }
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _messageController = TextEditingController();
 
   void _sendMessage() async {
     if (_messageController.text.isNotEmpty) {
+      // Add the message to Firestore
       await _firestore.collection('chats').add({
-        'senderId': widget.providerId,
-        'receiverId': widget.userId,
+        'senderId': widget.userId,
+        'receiverId': widget.providerId,
         'message': _messageController.text,
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      // Send a notification to the receiver
+      await _sendNotification(
+        receiverId: widget.providerId,
+        message: _messageController.text,
+      );
+
       _messageController.clear();
     }
   }
 
+// Send a notification to the receiver
+  Future<void> _sendNotification({required String receiverId, required String message}) async {
+    try {
+      // Fetch the receiver's FCM token
+      DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
+      String? fcmToken = receiverDoc['fcmToken'];
+
+      if (fcmToken != null) {
+        // Send the notification using Firebase Cloud Messaging
+        await _firestore.collection('notifications').add({
+          'to': fcmToken,
+          'notification': {
+            'title': 'New Message',
+            'body': message,
+          },
+        });
+      } else {
+        print('Receiver does not have an FCM token');
+      }
+    } catch (e) {
+      print('Error sending notification: $e');
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_chatTitle), // Display the chat title (e.g., "Chat with [Normal User]")
+        title: const Text('Chat'),
       ),
       body: Column(
         children: [
@@ -92,35 +91,24 @@ class _ChatPageState extends State<ChatPage> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     var message = messages[index];
-                    bool isMe = message['senderId'] == widget.providerId;
+                    String senderId = message['senderId'];
+                    String messageText = message['message'];
+                    bool isMe = senderId == widget.userId;
 
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                        padding: EdgeInsets.all(12),
+                        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
+                          color: isMe ? Colors.blue : Colors.grey[300],
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Column(
-                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          children: [
-                            if (!isMe)
-                              Text(
-                                _userFullName,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            if (!isMe) SizedBox(height: 4),
-                            Text(
-                              message['message'],
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ],
+                        child: Text(
+                          messageText,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black,
+                          ),
                         ),
                       ),
                     );
@@ -139,14 +127,25 @@ class _ChatPageState extends State<ChatPage> {
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.send),
-                  onPressed: _sendMessage,
+                  icon: const Icon(Icons.send),
+                  onPressed: () async {
+                    if (_messageController.text.isNotEmpty) {
+                      await _firestore.collection('chats').add({
+                        'senderId': widget.userId,
+                        'receiverId': widget.providerId,
+                        'message': _messageController.text,
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
+
+                      _messageController.clear();
+                    }
+                  },
                 ),
               ],
             ),

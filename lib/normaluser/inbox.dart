@@ -22,8 +22,8 @@ class _InboxPageState extends State<InboxPage> {
         automaticallyImplyLeading: false,
         flexibleSpace: SafeArea(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: const Row(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(width: 16.0),
@@ -61,7 +61,7 @@ class _InboxPageState extends State<InboxPage> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               ElevatedButton(
                 onPressed: () {
                   setState(() {
@@ -90,40 +90,51 @@ class _InboxPageState extends State<InboxPage> {
 
   Widget _buildChatsSection() {
     final currentUser = _auth.currentUser;
-    final userId = currentUser?.uid ?? '';
+    final userId = currentUser?.uid ?? ''; // Get the logged-in user's ID
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
-          .where('senderId', isEqualTo: userId) // Fetch messages where the current user is the sender
           .orderBy('timestamp', descending: true) // Order by timestamp to get the latest messages first
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(child: CircularProgressIndicator());
         }
 
         var chats = snapshot.data!.docs;
 
+        // Filter messages to include only those where the logged-in user is either the sender or the receiver
+        chats = chats.where((chat) {
+          String senderId = chat['senderId'];
+          String receiverId = chat['receiverId'];
+          return senderId == userId || receiverId == userId;
+        }).toList();
+
+        // Group messages by chat participants (senderId and receiverId)
         Map<String, QueryDocumentSnapshot> latestMessages = {};
         for (var chat in chats) {
+          String senderId = chat['senderId'];
           String receiverId = chat['receiverId'];
-          String chatKey = _generateChatKey(userId, receiverId);
 
+          // Create a unique key for each chat pair
+          String chatKey = _generateChatKey(senderId, receiverId);
+
+          // Store only the latest message for each chat pair
           if (!latestMessages.containsKey(chatKey)) {
             latestMessages[chatKey] = chat;
           }
         }
 
         return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _fetchUserDetailsForChats(latestMessages.values.toList()),
+          future: _fetchUserDetailsForChats(latestMessages.values.toList(), userId),
           builder: (context, userDetailsSnapshot) {
             if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             }
 
             if (userDetailsSnapshot.hasError) {
-              return const Center(child: Text('Error fetching user details'));
+              return Center(child: Text('Error fetching user details'));
             }
 
             List<Map<String, dynamic>> userDetails = userDetailsSnapshot.data ?? [];
@@ -134,37 +145,21 @@ class _InboxPageState extends State<InboxPage> {
                 var chat = latestMessages.values.toList()[index];
                 var userDetail = userDetails[index];
 
-                String receiverName = userDetail['receiverName'] ?? 'Unknown Company';
-                String profileImageUrl = userDetail['profileImageUrl'] ?? '';
-                String messagePreview = chat['message'];
+                String otherUserName = userDetail['otherUserName'] ?? 'Unknown User';
+                String otherUserId = userDetail['otherUserId'] ?? '';
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: profileImageUrl.isNotEmpty
-                        ? NetworkImage(profileImageUrl)
-                        : AssetImage('assets/default_avatar.png') as ImageProvider,
-                    radius: 25,
-                  ),
-                  title: Text(
-                    receiverName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    messagePreview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  title: Text(otherUserName), // Display full name
+                  subtitle: Text(chat['message']), // Display latest message
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatScreen(
-                          providerId: chat['receiverId'],
+                          providerId: otherUserId,
                           userId: userId,
-                          otherUserName: receiverName,
-                          otherUserId: chat['receiverId'],
+                          otherUserName: otherUserName,
+                          otherUserId: otherUserId,
                         ),
                       ),
                     );
@@ -178,32 +173,41 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  Future<List<Map<String, dynamic>>> _fetchUserDetailsForChats(List<QueryDocumentSnapshot> chats) async {
+  Future<List<Map<String, dynamic>>> _fetchUserDetailsForChats(List<QueryDocumentSnapshot> chats, String userId) async {
     List<Map<String, dynamic>> userDetails = [];
 
     for (var chat in chats) {
+      String senderId = chat['senderId'];
       String receiverId = chat['receiverId'];
 
+      // Determine the other user's ID (the one who is not the logged-in user)
+      String otherUserId = senderId == userId ? receiverId : senderId;
+
       try {
-        DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
-        if (receiverDoc.exists) {
-          String companyName = receiverDoc['companyName'] ?? 'Unknown Company';
-          String profileImageUrl = receiverDoc['profileImageUrl'] ?? '';
+        DocumentSnapshot otherUserDoc = await _firestore.collection('users').doc(otherUserId).get();
+        if (otherUserDoc.exists) {
+          String firstName = otherUserDoc['firstName'] ?? '';
+          String lastName = otherUserDoc['lastName'] ?? '';
+          String otherUserName = '$firstName $lastName'.trim(); // Combine first and last name
+          if (otherUserName.isEmpty) {
+            otherUserName = 'Unknown User'; // Fallback if both fields are empty
+          }
 
           userDetails.add({
-            'receiverName': companyName,
-            'profileImageUrl': profileImageUrl,
+            'otherUserName': otherUserName,
+            'otherUserId': otherUserId,
           });
         } else {
           userDetails.add({
-            'receiverName': 'Unknown Company',
-            'profileImageUrl': '',
+            'otherUserName': 'Unknown User',
+            'otherUserId': otherUserId,
           });
         }
       } catch (e) {
+        print('Error fetching user details for otherUserId: $otherUserId, error: $e'); // Debug log
         userDetails.add({
-          'receiverName': 'Error loading name',
-          'profileImageUrl': '',
+          'otherUserName': 'Error loading name',
+          'otherUserId': otherUserId,
         });
       }
     }
@@ -227,10 +231,10 @@ class _InboxPageState extends State<InboxPage> {
   Widget _buildNotificationItem(
       {required String title, required String message, required String time}) {
     return ListTile(
-      leading: const Icon(Icons.notifications, color: Colors.green),
+      leading: Icon(Icons.notifications, color: Colors.green),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       ),
       subtitle: Text(
         message,
@@ -238,16 +242,17 @@ class _InboxPageState extends State<InboxPage> {
       ),
       trailing: Text(
         time,
-        style: const TextStyle(color: Colors.grey, fontSize: 12),
+        style: TextStyle(color: Colors.grey, fontSize: 12),
       ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       dense: true,
     );
   }
 
+  // Helper function to generate a unique key for each chat pair
   String _generateChatKey(String senderId, String receiverId) {
     List<String> ids = [senderId, receiverId];
-    ids.sort();
+    ids.sort(); // Ensure the key is consistent regardless of sender/receiver order
     return ids.join('_');
   }
 }
