@@ -52,7 +52,7 @@ dependencies:
   firebase_storage: ^12.3.7
   flutter_rating_bar: ^4.0.0
   firebase_messaging: ^15.2.0
-  file_picker: ^5.0.0
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:
@@ -120,5 +120,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
 
