@@ -23,15 +23,14 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   bool isMaintenanceProvider = false;
   Position? _currentPosition;
   LatLng? _selectedLocation;
   File? _selectedCertificate;
-  String? _uploadedCertificateUrl; // Declare the variable here
+  String? _uploadedCertificateUrl;
 
   @override
   void dispose() {
@@ -39,8 +38,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _companyNameController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -55,7 +53,6 @@ class _SignupScreenState extends State<SignupScreen> {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -64,7 +61,6 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Check for location permission
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -76,7 +72,6 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     }
 
-    // Get the current user location
     Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentPosition = position;
@@ -84,7 +79,6 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _selectCertificate() async {
-    // Open file picker for PDF certificate selection
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
@@ -92,7 +86,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (result != null) {
       setState(() {
-        // Store the selected certificate file
         _selectedCertificate = File(result.files.single.path!);
       });
     }
@@ -104,12 +97,9 @@ class _SignupScreenState extends State<SignupScreen> {
           .ref()
           .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}.pdf');
 
-      // Log the file path before upload
       log('Uploading file: ${file.path}');
 
       final uploadTask = await storageRef.putFile(file);
-
-      // Log success message
       log('Upload completed: ${uploadTask.ref.name}');
 
       return await uploadTask.ref.getDownloadURL();
@@ -203,26 +193,15 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'Confirm Password',
                   isPassword: true,
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _firstNameController,
-                        hint: 'Enter your first name',
-                        label: 'First Name',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _lastNameController,
-                        hint: 'Enter your last name',
-                        label: 'Last Name',
-                      ),
-                    ),
-                  ],
-                ),
+                // Show company name field for maintenance providers only
+                if (isMaintenanceProvider) ...[
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    controller: _companyNameController,
+                    hint: 'Enter your company name',
+                    label: 'Company Name',
+                  ),
+                ],
                 const SizedBox(height: 10),
                 CustomTextField(
                   controller: _phoneController,
@@ -291,21 +270,18 @@ class _SignupScreenState extends State<SignupScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
+    final companyName = _companyNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
 
     final location = _selectedLocation != null
         ? GeoPoint(_selectedLocation!.latitude, _selectedLocation!.longitude)
         : null;
 
-    // Validate input fields
     if (email.isEmpty ||
         username.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty ||
-        firstName.isEmpty ||
-        lastName.isEmpty ||
+        (isMaintenanceProvider ? companyName.isEmpty : false) ||
         phoneNumber.isEmpty ||
         (isMaintenanceProvider && _selectedCertificate == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,7 +290,6 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Check if passwords match
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
@@ -322,40 +297,41 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Proceed with user registration
     try {
       final user = await AuthService().createUserWithUsernameAndEmail(
         username,
         email,
         password,
         role: isMaintenanceProvider ? 'Maintenance Provider' : 'User',
-        firstName: firstName,
-        lastName: lastName,
+        companyName: isMaintenanceProvider ? companyName : null,
         phoneNumber: phoneNumber,
         location: location,
       );
 
-      // Check if user is not null
       if (user != null) {
-        // Upload certificate if the user is a maintenance provider
         String? uploadedCertificateUrl;
         if (isMaintenanceProvider && _selectedCertificate != null) {
           uploadedCertificateUrl = await _uploadCertificate(_selectedCertificate!, user.uid);
         }
 
-        // Save the uploaded certificate URL to the user's profile if applicable
-        if (uploadedCertificateUrl != null) {
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-            'certificate': uploadedCertificateUrl,
-          });
-        }
+        final userData = {
+          'username': username,
+          'email': email,
+          'phoneNumber': phoneNumber,
+          'role': isMaintenanceProvider ? 'Maintenance Provider' : 'User',
+          'companyName': isMaintenanceProvider ? companyName : null,
+          'location': location,
+          'status': isMaintenanceProvider ? 'pending' : 'active', // Default value
+          'certificate': uploadedCertificateUrl,
+        };
 
-        // Navigate to the next screen or show success message
+        // Save to Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userData);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Sign-up successful!')),
         );
 
-        // Redirect to login or home screen
         goToLogin(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -369,7 +345,5 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     }
   }
-
-
 
 }

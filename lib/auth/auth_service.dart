@@ -10,7 +10,16 @@ class AuthService {
 
   Future<User?> createUserWithUsernameAndEmail(
       String username, String email, String password,
-      {String? role, String? certificate, String? firstName, String? lastName, String? phoneNumber, String? address, String? state, String? zipCode, GeoPoint? location}) async {
+      {String? role,
+        String? certificate,
+        String? companyName, // Added companyName parameter
+        String? firstName,
+        String? lastName,
+        String? phoneNumber,
+        String? address,
+        String? state,
+        String? zipCode,
+        GeoPoint? location}) async {
     try {
       // Create a new user with email and password
       final cred = await _auth.createUserWithEmailAndPassword(
@@ -22,13 +31,13 @@ class AuthService {
         'username': username,
         'email': email,
         'role': role ?? 'User',
+        'companyName': companyName ?? '', // Store companyName if provided
         'firstName': firstName ?? '',
         'lastName': lastName ?? '',
         'phoneNumber': phoneNumber ?? '',
         'zipCode': zipCode ?? '',
         'location': location ?? GeoPoint(0, 0), // Default location
       };
-
 
       // Add certificate if provided
       if (certificate != null && certificate.isNotEmpty) {
@@ -84,7 +93,6 @@ class AuthService {
       return 'User'; // Default to 'User' if error occurs
     }
   }
-
 
   Future<void> signout() async {
     try {
