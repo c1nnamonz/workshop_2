@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../widgets/MessagesPage.dart';
+
 class MaintenanceProviderHomePage extends StatefulWidget {
   const MaintenanceProviderHomePage({super.key});
 
@@ -31,9 +33,9 @@ class _MaintenanceProviderHomePageState
     _fetchOngoingBookings();
     _pages = [
       _buildDashboard(),
-      BookingPage(),
+      const BookingPage(),
       const Center(child: Text('Inbox Page')),
-      const Center(child: Text('Chat Page')),
+      const MessagesPage(),
       MaintenanceProviderProfilePage(),
     ];
   }
@@ -188,7 +190,7 @@ class _MaintenanceProviderHomePageState
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            OngoingBookingsPage(bookings: []), // Update logic
+                            const OngoingBookingsPage(bookings: []), // Update logic
                       ),
                     );
                   },
@@ -202,7 +204,7 @@ class _MaintenanceProviderHomePageState
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => CompletedServicesPage()),
+                          builder: (context) => const CompletedServicesPage()),
                     );
                   },
                 ),
@@ -271,7 +273,7 @@ class _MaintenanceProviderHomePageState
           Text(
             '\$${totalSales.toStringAsFixed(2)}',
             style: const TextStyle(
-              fontSize: 50,
+              fontSize: 40,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -351,7 +353,7 @@ class _MaintenanceProviderHomePageState
           DateTime dateOnly = DateTime(day.year, day.month, day.day); // Strip time
           return _bookingsByDate[dateOnly] ?? [];
         },
-        calendarStyle: CalendarStyle(
+        calendarStyle: const CalendarStyle(
           todayDecoration: BoxDecoration(
             color: Colors.orangeAccent,
             shape: BoxShape.circle,
@@ -365,7 +367,7 @@ class _MaintenanceProviderHomePageState
             if (_bookingsByDate.containsKey(dateOnly)) {
               return Container(
                 margin: const EdgeInsets.all(6.0),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.blue, // Highlight in blue
                   shape: BoxShape.circle,
                 ),
