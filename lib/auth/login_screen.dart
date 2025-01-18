@@ -118,37 +118,89 @@ class _LoginScreenState extends State<LoginScreen> {
   );
 
   _login() async {
-    final user = await _auth.loginUserWithUsernameAndPassword(
-        _username.text, _password.text);
+    try {
+      final user = await _auth.loginUserWithUsernameAndPassword(
+        _username.text,
+        _password.text,
+      );
 
-    if (user != null) {
-      // Fetch user details from Firestore to determine the role
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      if (user != null) {
+        // Fetch user details from Firestore
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      if (userDoc.exists) {
-        final role = userDoc.data()?['role'] ?? 'User';
+        if (userDoc.exists) {
+          final role = userDoc.data()?['role'] ?? 'User';
+          final status = userDoc.data()?['status'];
 
-        if (role == 'Maintenance Provider') {
-          log("Maintenance Provider Logged In");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MaintenanceProviderHomePage()),
-          );
+          // Handle login based on the status field
+          if (status == 'Rejected') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your registration request has been rejected.'),
+              ),
+            );
+            return;
+          } else if (status == 'Banned') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your account have been banned.'),
+              ),
+            );
+            return;
+          }else if (status == 'Pending') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your registration request is still pending.'),
+              ),
+            );
+            return;
+          } else if (status == 'Active' || status == null) {
+            // Navigate to the appropriate home page based on the role
+            if (role == 'Maintenance Provider') {
+              log("Maintenance Provider Logged In");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MaintenanceProviderHomePage(),
+                ),
+              );
+            } else {
+              log("Normal User Logged In");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserHomepage(),
+                ),
+              );
+            }
+          }
         } else {
-          log("Normal User Logged In");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => UserHomepage()),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User data not found. Please contact support.'),
+            ),
           );
         }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid username or password.'),
+          ),
+        );
       }
-    } else {
-      log("Login failed");
+    } catch (e) {
+      log("Login error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: $e'),
+        ),
+      );
     }
   }
+
 
 
 }

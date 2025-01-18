@@ -1,4 +1,6 @@
 import 'dart:developer';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
@@ -6,7 +8,8 @@ import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Make sure to import this for GeoPoint
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -20,7 +23,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _certificateController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -28,6 +30,8 @@ class _SignupScreenState extends State<SignupScreen> {
   bool isMaintenanceProvider = false;
   Position? _currentPosition;
   LatLng? _selectedLocation;
+  File? _selectedCertificate;
+  String? _uploadedCertificateUrl; // Declare the variable here
 
   @override
   void dispose() {
@@ -35,7 +39,6 @@ class _SignupScreenState extends State<SignupScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _certificateController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
@@ -48,7 +51,6 @@ class _SignupScreenState extends State<SignupScreen> {
     _getUserLocation();
   }
 
-  // Function to get user's current location
   Future<void> _getUserLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -62,12 +64,11 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Check and request location permission
+    // Check for location permission
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse &&
-          permission != LocationPermission.always) {
+      if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location permission denied')),
         );
@@ -75,46 +76,47 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     }
 
-    // Get current position
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+    // Get the current user location
+    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentPosition = position;
     });
   }
 
-  void _openMapDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _currentPosition != null
-                    ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                    : const LatLng(3.1390, 101.6869), // Default to KL if location is not available
-                zoom: 15,
-              ),
-              onTap: (LatLng location) {
-                setState(() {
-                  _selectedLocation = location;
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
+  Future<void> _selectCertificate() async {
+    // Open file picker for PDF certificate selection
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
     );
+
+    if (result != null) {
+      setState(() {
+        // Store the selected certificate file
+        _selectedCertificate = File(result.files.single.path!);
+      });
+    }
+  }
+
+  Future<String> _uploadCertificate(File file, String userId) async {
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+      // Log the file path before upload
+      log('Uploading file: ${file.path}');
+
+      final uploadTask = await storageRef.putFile(file);
+
+      // Log success message
+      log('Upload completed: ${uploadTask.ref.name}');
+
+      return await uploadTask.ref.getDownloadURL();
+    } catch (e) {
+      log('Certificate upload error: $e');
+      throw 'Failed to upload certificate: $e';
+    }
   }
 
   @override
@@ -122,7 +124,6 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background image
           Container(
             height: double.infinity,
             decoration: const BoxDecoration(
@@ -132,8 +133,6 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-
-          // Form and other content
           SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -151,8 +150,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // User / Maintenance Provider toggle buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -180,8 +177,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                // Form Fields
                 CustomTextField(
                   controller: _emailController,
                   hint: 'Enter your email',
@@ -209,8 +204,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   isPassword: true,
                 ),
                 const SizedBox(height: 10),
-
-                // Name Fields
                 Row(
                   children: [
                     Expanded(
@@ -231,8 +224,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-
-                // Phone number
                 CustomTextField(
                   controller: _phoneController,
                   hint: 'Enter your phone number',
@@ -240,40 +231,31 @@ class _SignupScreenState extends State<SignupScreen> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 10),
-
-                // Certificate field for Maintenance Provider
                 if (isMaintenanceProvider) ...[
-                  CustomTextField(
-                    controller: _certificateController,
-                    hint: 'Certification Number',
-                    label: 'Certificate',
-                  ),
-                  const SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: _openMapDialog,
-                    child: const Text('Set Location on Map'),
+                    onPressed: _selectCertificate,
+                    child: Text(_selectedCertificate == null
+                        ? 'Upload Certificate (PDF)'
+                        : 'Certificate Selected'),
                   ),
-                  if (_selectedLocation != null)
+                  if (_selectedCertificate != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        'Selected Location: ${_selectedLocation!.latitude}, ${_selectedLocation!.longitude}',
+                        'Selected File: ${_selectedCertificate!.path.split('/').last}',
                         style: const TextStyle(color: Colors.black87),
                       ),
                     ),
                 ],
                 const SizedBox(height: 20),
-
-                // Sign Up button
                 CustomButton(
                   textColor: Colors.white,
                   color: Colors.green,
                   label: 'Sign Up',
                   onPressed: _signUp,
-                  width: 140,  // Set a smaller width
-                  height: 42,  // Set a smaller height
+                  width: 140,
+                  height: 42,
                 ),
-
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -312,13 +294,12 @@ class _SignupScreenState extends State<SignupScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
-    final certificate = isMaintenanceProvider ? _certificateController.text.trim() : null;
 
-    // Updated location logic
     final location = _selectedLocation != null
         ? GeoPoint(_selectedLocation!.latitude, _selectedLocation!.longitude)
         : null;
 
+    // Validate input fields
     if (email.isEmpty ||
         username.isEmpty ||
         password.isEmpty ||
@@ -326,13 +307,14 @@ class _SignupScreenState extends State<SignupScreen> {
         firstName.isEmpty ||
         lastName.isEmpty ||
         phoneNumber.isEmpty ||
-        (isMaintenanceProvider && certificate!.isEmpty)) {
+        (isMaintenanceProvider && _selectedCertificate == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
+        const SnackBar(content: Text('Please fill in all fields')),
       );
       return;
     }
 
+    // Check if passwords match
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
@@ -340,27 +322,45 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-
-
+    // Proceed with user registration
     try {
       final user = await AuthService().createUserWithUsernameAndEmail(
         username,
         email,
         password,
         role: isMaintenanceProvider ? 'Maintenance Provider' : 'User',
-        certificate: certificate,
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
         location: location,
       );
+
+      // Check if user is not null
       if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        // Upload certificate if the user is a maintenance provider
+        String? uploadedCertificateUrl;
+        if (isMaintenanceProvider && _selectedCertificate != null) {
+          uploadedCertificateUrl = await _uploadCertificate(_selectedCertificate!, user.uid);
+        }
+
+        // Save the uploaded certificate URL to the user's profile if applicable
+        if (uploadedCertificateUrl != null) {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+            'certificate': uploadedCertificateUrl,
+          });
+        }
+
+        // Navigate to the next screen or show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign-up successful!')),
         );
+
+        // Redirect to login or home screen
+        goToLogin(context);
       } else {
-        throw "Failed to sign up";
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User creation failed.')),
+        );
       }
     } catch (e) {
       log('Sign-up error: $e');
@@ -369,4 +369,7 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     }
   }
+
+
+
 }
