@@ -234,39 +234,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () =>
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SettingsPage()),
-                  ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.card_giftcard),
-              title: const Text('Vouchers'),
-              onTap: () =>
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => VouchersPage()),
-                  ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.location_on),
-              title: const Text('Addresses'),
-              onTap: () =>
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AddressesPage()),
-                  ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Log Out'),
-              onTap: _logout,
-            ),
           ],
         ),
       ),

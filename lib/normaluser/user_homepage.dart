@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,25 +8,9 @@ import 'package:projects/normaluser/serviceCard.dart';
 import 'Chatscreen.dart';
 import 'booking_form.dart';
 import 'chatbot.dart';
-import 'viewService.dart';
 import 'bookings.dart';
 import 'inbox.dart';
 import 'profile.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
-
-Future<void> requestLocationPermission() async {
-  var status = await Permission.location.request();
-  if (status.isGranted) {
-    print("Location permission granted.");
-  } else if (status.isDenied) {
-    print("Location permission denied.");
-  } else if (status.isPermanentlyDenied) {
-    print("Location permission permanently denied. Open app settings.");
-  }
-}
-
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -76,8 +59,8 @@ class _UserHomepageState extends State<UserHomepage> {
         body: Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('images/chatbguser.png'), // Set the path to your background image
-              fit: BoxFit.cover, // Make sure the image covers the entire screen
+              image: AssetImage('images/chatbguser.png'),
+              fit: BoxFit.cover,
             ),
           ),
           child: _pages[_selectedIndex],
@@ -110,7 +93,6 @@ class _UserHomepageState extends State<UserHomepage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            // Replace this with your AI chatbot screen navigation logic
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => ChatBotScreen()),
@@ -124,7 +106,6 @@ class _UserHomepageState extends State<UserHomepage> {
   }
 }
 
-
 class HomePageContent extends StatefulWidget {
   @override
   _HomePageContentState createState() => _HomePageContentState();
@@ -133,78 +114,6 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   bool _showMore = false;
   String _searchQuery = '';
-  String _currentLocation = 'Loading...';
-
-  late GoogleMapController mapController;
-
-  Future<void> _getUserLocation() async {
-    try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          _currentLocation = 'Please enable location services.';
-        });
-        return;
-      }
-
-      // Check location permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.deniedForever) {
-          setState(() {
-            _currentLocation = 'Location permissions are permanently denied. Please enable them in settings.';
-          });
-          return;
-        }
-        if (permission == LocationPermission.denied) {
-          setState(() {
-            _currentLocation = 'Location permission denied.';
-          });
-          return;
-        }
-      }
-
-      // Fetch the current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      // Update the location state
-      setState(() {
-        _currentLocation =
-        '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
-      });
-
-      // Update the map's camera position
-      if (mapController != null) {
-        mapController.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(position.latitude, position.longitude),
-            15, // Adjust the zoom level (can be dynamic)
-          ),
-        );
-      } else {
-        setState(() {
-          _currentLocation = 'Map controller is not initialized.';
-        });
-      }
-    } catch (e) {
-      // Handle exceptions
-      setState(() {
-        _currentLocation = 'Failed to get location. Please try again.';
-      });
-      print('Error getting location: $e');
-    }
-  }
-
-
-  @override
-  void initState() {
-    super.initState();
-    _getUserLocation();
-  }
 
   final List<String> categories = [
     'All',
@@ -262,12 +171,12 @@ class _HomePageContentState extends State<HomePageContent> {
 
         if (userDoc.exists) {
           serviceList.add({
-            'id': serviceDoc.id, // Add the document ID here
+            'id': serviceDoc.id,
             'description': serviceDoc['description'] ?? 'Unknown Description',
             'price': serviceDoc['price'] ?? 'Unknown Price',
             'service': serviceDoc['service'] ?? 'Unknown Service',
-            'rating': serviceDoc['rating'] ?? 0.0, // Fetch the rating
-            'providerId': userId, // Ensure the providerId is included
+            'rating': serviceDoc['rating'] ?? 0.0,
+            'providerId': userId,
             'companyName': userDoc['companyName'] ?? 'Unknown Company',
             'location': userDoc['location'] ?? 'Unknown Location',
           });
@@ -279,10 +188,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
     return serviceList;
   }
-
-
-
-
 
   List<Widget> _getServiceCards(List<Map<String, dynamic>> serviceList) {
     if (selectedCategory != null && selectedCategory != 'All') {
@@ -318,7 +223,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
       return GestureDetector(
         onTap: () {
-          // Dialog showing service details
           showDialog(
             context: context,
             builder: (BuildContext context) {
@@ -330,7 +234,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
-                      imagePath, // Use the preset image path here
+                      imagePath,
                       height: 100,
                       width: 100,
                       fit: BoxFit.cover,
@@ -357,7 +261,7 @@ class _HomePageContentState extends State<HomePageContent> {
                               MaterialPageRoute(
                                 builder: (context) => BookingForm(
                                   providerId: service['providerId'] ?? '',
-                                  serviceId: service['id'] ?? '', // Include the serviceId here
+                                  serviceId: service['id'] ?? '',
                                   serviceName: service['service'] ?? '',
                                   price: service['price'] ?? '',
                                   description: service['description'] ?? '',
@@ -369,17 +273,16 @@ class _HomePageContentState extends State<HomePageContent> {
                           },
                           child: const Text('Book Now'),
                         ),
-
                         ElevatedButton(
                           onPressed: () {
-                            String userId = FirebaseAuth.instance.currentUser!.uid; // Get current user ID
+                            String userId = FirebaseAuth.instance.currentUser!.uid;
 
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ChatScreen(
                                   providerId: service['providerId'] ?? '',
-                                  userId: userId, // Pass the current user ID
+                                  userId: userId,
                                   otherUserName: service['companyName'] ?? 'Unknown Company',
                                   otherUserId: service['providerId'] ?? '',
                                 ),
@@ -388,7 +291,6 @@ class _HomePageContentState extends State<HomePageContent> {
                           },
                           child: const Text('Chat'),
                         ),
-
                       ],
                     ),
                   ],
@@ -401,16 +303,15 @@ class _HomePageContentState extends State<HomePageContent> {
           serviceType: service['service'] ?? 'Unknown Type',
           serviceName: service['service'] ?? 'Unknown Service',
           rangePrice: service['price'] ?? 'N/A',
-          rating: (service['rating'] ?? 0.0).toDouble(), // Pass the rating as a double
+          rating: (service['rating'] ?? 0.0).toDouble(),
           location: service['location'] ?? 'Unknown Location',
           companyName: service['companyName'] ?? 'Unknown Company',
           providerId: service['providerId'] ?? '',
-          imagePath: imagePath, // Use dynamic image path
+          imagePath: imagePath,
         ),
       );
     }).toList();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -479,14 +380,13 @@ class _HomePageContentState extends State<HomePageContent> {
                         width: (MediaQuery.of(context).size.width - 80) / 4,
                         child: CategoryCard(
                           image: Image.asset(
-                            categoryIcons[category]!, // Assumes 'categoryIcons' is a map with categories as keys
+                            categoryIcons[category]!,
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
                           ),
-                          category: category, // Pass the category string directly
+                          category: category,
                         ),
-
                       ),
                     );
                   }).toList(),
@@ -499,54 +399,21 @@ class _HomePageContentState extends State<HomePageContent> {
                         _showMore = !_showMore;
                       });
                     },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _showMore ? 'Collapse' : 'More Category',
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.blue,
-                            decorationThickness: 2,
-                          ),
-                        ),
-                        Icon(
-                          _showMore ? Icons.arrow_upward : Icons.arrow_downward,
-                          color: Colors.blue,
-                          size: 16,
-                        ),
-                      ],
+                    child: Text(
+                      _showMore ? 'Show less' : 'Show more',
+                      style: const TextStyle(color: Colors.deepOrange, fontSize: 16),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Available Services',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+                  'Recommended Services',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    'Your Location: $_currentLocation',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-                  ),
+                Column(
+                  children: _getServiceCards(services),
                 ),
-                SizedBox(
-                  height: 250,
-                  child: GoogleMap(
-                    initialCameraPosition: const CameraPosition(
-                      target: LatLng(3.1390, 101.6869), // Example: Kuala Lumpur's coordinates
-                      zoom: 10,
-                    ),
-                    onMapCreated: (GoogleMapController controller) {
-                      mapController = controller;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Column(children: _getServiceCards(services)),
               ],
             ),
           ),
