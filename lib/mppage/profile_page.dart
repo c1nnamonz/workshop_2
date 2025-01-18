@@ -280,7 +280,7 @@ class _MaintenanceProviderProfilePageState
               ElevatedButton(
                 onPressed: _navigateToManageServices,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey,
+                  backgroundColor: Colors.grey,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text("Manage Services"),
@@ -289,7 +289,7 @@ class _MaintenanceProviderProfilePageState
               ElevatedButton(
                 onPressed: _navigateToEditProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey,
+                  backgroundColor: Colors.grey,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text("Edit Profile"),
