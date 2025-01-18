@@ -66,7 +66,7 @@ class _ReportPageState extends State<ReportPage> {
   Future<void> _submitReport() async {
     if (_reasonController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please provide a reason for the report.')),
+        const SnackBar(content: Text('Please provide a reason for the report.')),
       );
       return;
     }
@@ -92,7 +92,7 @@ class _ReportPageState extends State<ReportPage> {
 
       // Show a success message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report submitted successfully.')),
+        const SnackBar(content: Text('Report submitted successfully.')),
       );
 
       // Navigate back to the previous screen
@@ -112,7 +112,7 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Report User'),
+        title: const Text('Report User'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -121,23 +121,23 @@ class _ReportPageState extends State<ReportPage> {
           children: [
             Text(
               'Reporting: ${widget.reportedUserName}',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             TextField(
               controller: _reasonController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Reason for Report',
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
-            SizedBox(height: 20),
-            Text(
+            const SizedBox(height: 20),
+            const Text(
               'Upload Evidence (Optional)',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             _selectedImages.isEmpty
                 ? GestureDetector(
               onTap: _pickImages,
@@ -148,7 +148,7 @@ class _ReportPageState extends State<ReportPage> {
                 ),
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -157,7 +157,7 @@ class _ReportPageState extends State<ReportPage> {
                         size: 40,
                         color: Colors.blue.shade800,
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Text(
                         'Tap to select images',
                         style: TextStyle(
@@ -184,20 +184,20 @@ class _ReportPageState extends State<ReportPage> {
                   ))
                       .toList(),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: _pickImages,
-                  child: Text('Add More Images'),
+                  child: const Text('Add More Images'),
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Center(
               child: _isLoading
-                  ? CircularProgressIndicator()
+                  ? const CircularProgressIndicator()
                   : ElevatedButton(
                 onPressed: _submitReport,
-                child: Text('Submit Report'),
+                child: const Text('Submit Report'),
               ),
             ),
           ],
