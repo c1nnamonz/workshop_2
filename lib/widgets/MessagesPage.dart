@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // Add this import
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:projects/widgets/ChatPage.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -15,17 +16,36 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
   late TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance; // Add this line
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _setupNotifications(); // Call the notification setup function
+    _tabController = TabController(length: 2, vsync: this); // Only 2 tabs now
+    _initializeNotifications();
+    _setupFirebaseMessaging();
+    _listenForNewMessages();
+    _listenForAdminWarnings(); // Listen for admin warnings
+  }
+
+  // Initialize local notifications
+  void _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings initializationSettings =
+    InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: null,
+    );
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
   // Set up Firebase Messaging
-  void _setupNotifications() async {
+  void _setupFirebaseMessaging() async {
     // Request permission for notifications (required for iOS)
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
@@ -36,7 +56,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('User granted permission for notifications');
 
-      // Listen for incoming messages
+      // Listen for incoming messages while the app is in the foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print('Received a new message: ${message.notification?.title}');
 
@@ -51,11 +71,98 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     }
   }
 
-  // Show a notification
-  void _showNotification({required String title, required String body}) {
-    // Use a package like `flutter_local_notifications` to display notifications
-    // Example: https://pub.dev/packages/flutter_local_notifications
-    print('Notification: $title - $body');
+  // Listen for new messages in Firestore
+  void _listenForNewMessages() {
+    final currentUser = _auth.currentUser;
+    final userId = currentUser?.uid ?? '';
+
+    _firestore
+        .collection('chats')
+        .where('receiverId', isEqualTo: userId)
+        .snapshots()
+        .listen((snapshot) async {
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          // New message received
+          var message = change.doc.data() as Map<String, dynamic>;
+          String senderId = message['senderId'];
+
+          // Fetch the sender's name
+          String senderName = await _fetchUserName(senderId);
+
+          // Show a notification with the sender's name
+          _showNotification(
+            title: 'New Message from $senderName',
+            body: message['message'],
+          );
+        }
+      }
+    });
+  }
+
+  // Listen for admin warnings in the notifications collection
+  void _listenForAdminWarnings() {
+    final currentUser = _auth.currentUser;
+    final userId = currentUser?.uid ?? '';
+
+    _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId) // Filter for the current user
+        .snapshots()
+        .listen((snapshot) async {
+      print('Admin notifications fetched: ${snapshot.docs.length}'); // Debug log
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          // New warning received
+          var notification = change.doc.data() as Map<String, dynamic>;
+          String title = notification['title'] ?? 'Warning Issued';
+          String body = notification['body'] ?? 'You have received a warning for your reported behavior.';
+
+          // Show a notification for the admin warning
+          _showNotification(
+            title: title,
+            body: body,
+          );
+        }
+      }
+    });
+  }
+
+  // Fetch the sender's name from Firestore
+  Future<String> _fetchUserName(String userId) async {
+    try {
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        String firstName = userDoc['firstName'] ?? '';
+        String lastName = userDoc['lastName'] ?? '';
+        String fullName = '$firstName $lastName'.trim();
+        return fullName.isNotEmpty ? fullName : 'Unknown User';
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+    }
+    return 'Unknown User';
+  }
+
+  // Show a local notification
+  void _showNotification({required String title, required String body}) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'your_channel_id',
+      'your_channel_name',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      platformChannelSpecifics,
+    );
   }
 
   @override
@@ -66,29 +173,29 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Ongoing'),
-            Tab(text: 'Past'),
+            Tab(text: 'Messages'), // Renamed from "Ongoing" to "Messages"
+            Tab(text: 'Notifications'), // Notifications tab
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildChatList(isOngoing: true), // Ongoing Chats
-          _buildChatList(isOngoing: false), // Past Chats
+          _buildChatList(), // Messages Section
+          _buildNotificationsSection(), // Notifications Section
         ],
       ),
     );
   }
 
-  Widget _buildChatList({required bool isOngoing}) {
+  Widget _buildChatList() {
     final currentUser = _auth.currentUser;
-    final userId = currentUser?.uid ?? ''; // Get the logged-in user's ID
+    final userId = currentUser?.uid ?? '';
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
-          .orderBy('timestamp', descending: true) // Order by timestamp to get the latest messages first
+          .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -209,5 +316,67 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
     List<String> ids = [senderId, receiverId];
     ids.sort(); // Ensure the key is consistent regardless of sender/receiver order
     return ids.join('_');
+  }
+
+  Widget _buildNotificationsSection() {
+    final currentUser = _auth.currentUser;
+    final userId = currentUser?.uid ?? '';
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId) // Filter for the current user
+          .orderBy('timestamp', descending: true) // Order by timestamp
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        var notifications = snapshot.data!.docs;
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            var notification = notifications[index];
+            String title = notification['title'] ?? 'Warning Issued';
+            String body = notification['body'] ?? 'You have received a warning for your reported behavior.';
+            String time = notification['timestamp'] != null
+                ? notification['timestamp'].toDate().toString()
+                : 'Unknown Time';
+
+            return _buildNotificationItem(
+              title: title,
+              message: body,
+              time: time,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationItem({
+    required String title,
+    required String message,
+    required String time,
+  }) {
+    return ListTile(
+      leading: Icon(Icons.notifications, color: Colors.green),
+      title: Text(
+        title,
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      subtitle: Text(
+        message,
+        style: TextStyle(color: Colors.grey[700], fontSize: 14),
+      ),
+      trailing: Text(
+        time,
+        style: TextStyle(color: Colors.grey, fontSize: 12),
+      ),
+      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      dense: true,
+    );
   }
 }
