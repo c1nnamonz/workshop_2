@@ -74,13 +74,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _getUserProfile() async {
-    // Get the current user from Firebase Authentication
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       setState(() {
         _userId = user.uid;  // Automatically set the user ID
       });
-      // Now fetch data from Firestore using the user ID
       _fetchUserData(_userId!);
     } else {
       print('User is not logged in');
@@ -91,7 +89,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(userId)  // Fetch data based on the logged-in user ID
+          .doc(userId)
           .get();
 
       if (userDoc.exists) {
@@ -149,8 +147,8 @@ class _ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute(
         builder: (context) =>
             EditProfilePage(
-              firstName: _firstName, // Passing first name instead of username
-              lastName: _lastName, // Passing last name
+              firstName: _firstName,
+              lastName: _lastName,
               birthday: _userBirthday,
               phone: _userPhone,
               gender: _userGender,
@@ -163,7 +161,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   _userPhone = phone;
                   _userGender = gender;
                 });
-                // Call the update function to save the changes
                 _updateUserProfile();
               },
             ),
@@ -183,60 +180,77 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true, // Keeps the AppBar layout centered
+        centerTitle: true,
+        title: const Text('Profile'),
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile Picture
+              Stack(
                 children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 70,
-                        backgroundImage: _profileImage == null
-                            ? const AssetImage(
-                            'images/profile-img.png') as ImageProvider
-                            : FileImage(File(_profileImage!)),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt, color: Colors.white),
-                          onPressed: _pickImage,
-                        ),
-                      ),
-                    ],
+                  CircleAvatar(
+                    radius: 70,
+                    backgroundImage: _profileImage == null
+                        ? const AssetImage('images/profile-img.png') as ImageProvider
+                        : FileImage(File(_profileImage!)),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '$_firstName $_lastName',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _userEmail,
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _navigateToEditProfile,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orangeAccent,
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.camera_alt, color: Colors.white),
+                      onPressed: _pickImage,
                     ),
-                    child: const Text(
-                        'Edit Profile', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              // Name
+              Text(
+                '$_firstName $_lastName',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 5),
+              // Email
+              Text(
+                _userEmail,
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              // Edit Profile Button
+              ElevatedButton(
+                onPressed: _navigateToEditProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orangeAccent,
+                  minimumSize: const Size(double.infinity, 45),
+                ),
+                child: const Text(
+                  'Edit Profile',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Logout Button
+              ElevatedButton(
+                onPressed: _logout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black12,
+                  minimumSize: const Size(double.infinity, 45),
+                ),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+

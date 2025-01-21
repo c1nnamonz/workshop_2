@@ -276,11 +276,11 @@ class _MaintenanceProviderProfilePageState
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _navigateToManageServices,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey,
+                  backgroundColor: Colors.black12,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text("Manage Services"),
@@ -289,7 +289,7 @@ class _MaintenanceProviderProfilePageState
               ElevatedButton(
                 onPressed: _navigateToEditProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey,
+                  backgroundColor: Colors.black12,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text("Edit Profile"),
