@@ -29,7 +29,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool isMaintenanceProvider = false;
   Position? _currentPosition;
   LatLng? _selectedLocation;
-  File? _selectedCertificate;
+  List<File>? _selectedCertificates = [];
   String? _uploadedCertificateUrl;
 
   @override
@@ -78,34 +78,42 @@ class _SignupScreenState extends State<SignupScreen> {
     });
   }
 
-  Future<void> _selectCertificate() async {
+  Future<void> _selectCertificates() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      allowMultiple: true,  // Allow multiple file selection
     );
 
     if (result != null) {
       setState(() {
-        _selectedCertificate = File(result.files.single.path!);
+        _selectedCertificates = result.files.map((file) => File(file.path!)).toList();  // Store selected files as a list
       });
     }
   }
 
-  Future<String> _uploadCertificate(File file, String userId) async {
+  Future<List<String>> _uploadCertificates(List<File> files, String userId) async {
+    List<String> uploadedUrls = [];
+
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}.pdf');
+      for (var file in files) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
 
-      log('Uploading file: ${file.path}');
+        log('Uploading file: ${file.path}');
 
-      final uploadTask = await storageRef.putFile(file);
-      log('Upload completed: ${uploadTask.ref.name}');
+        final uploadTask = await storageRef.putFile(file);
+        log('Upload completed: ${uploadTask.ref.name}');
 
-      return await uploadTask.ref.getDownloadURL();
+        final fileUrl = await uploadTask.ref.getDownloadURL();
+        uploadedUrls.add(fileUrl);
+      }
+
+      return uploadedUrls;
     } catch (e) {
       log('Certificate upload error: $e');
-      throw 'Failed to upload certificate: $e';
+      throw 'Failed to upload certificates: $e';
     }
   }
 
@@ -212,17 +220,22 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 10),
                 if (isMaintenanceProvider) ...[
                   ElevatedButton(
-                    onPressed: _selectCertificate,
-                    child: Text(_selectedCertificate == null
-                        ? 'Upload Certificate (PDF)'
-                        : 'Certificate Selected'),
+                    onPressed: _selectCertificates,
+                    child: Text(_selectedCertificates == null || _selectedCertificates!.isEmpty
+                        ? 'Upload Certificates (PDF)'
+                        : 'Certificates Selected'),
                   ),
-                  if (_selectedCertificate != null)
+                  if (_selectedCertificates != null && _selectedCertificates!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Selected File: ${_selectedCertificate!.path.split('/').last}',
-                        style: const TextStyle(color: Colors.black87),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _selectedCertificates!
+                            .map((file) => Text(
+                          'Selected File: ${file.path.split('/').last}',
+                          style: const TextStyle(color: Colors.black87),
+                        ))
+                            .toList(),
                       ),
                     ),
                 ],
@@ -283,7 +296,7 @@ class _SignupScreenState extends State<SignupScreen> {
         confirmPassword.isEmpty ||
         (isMaintenanceProvider ? companyName.isEmpty : false) ||
         phoneNumber.isEmpty ||
-        (isMaintenanceProvider && _selectedCertificate == null)) {
+        (isMaintenanceProvider && (_selectedCertificates == null || _selectedCertificates!.isEmpty))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
@@ -309,9 +322,9 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (user != null) {
-        String? uploadedCertificateUrl;
-        if (isMaintenanceProvider && _selectedCertificate != null) {
-          uploadedCertificateUrl = await _uploadCertificate(_selectedCertificate!, user.uid);
+        List<String>? uploadedCertificateUrls;
+        if (isMaintenanceProvider && _selectedCertificates != null && _selectedCertificates!.isNotEmpty) {
+          uploadedCertificateUrls = await _uploadCertificates(_selectedCertificates!, user.uid);
         }
 
         final userData = {
@@ -322,7 +335,7 @@ class _SignupScreenState extends State<SignupScreen> {
           'companyName': isMaintenanceProvider ? companyName : null,
           'location': location,
           'status': isMaintenanceProvider ? 'pending' : 'active', // Default value
-          'certificate': uploadedCertificateUrl,
+          'certificates': uploadedCertificateUrls,  // Store URLs of uploaded certificates
         };
 
         // Save to Firestore
@@ -345,5 +358,4 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     }
   }
-
 }

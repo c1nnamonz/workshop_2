@@ -26,12 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    super.dispose();
     _username.dispose();
     _password.dispose();
+    super.dispose();
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black, // Ensure the text is visible on the background
+                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 50),
@@ -78,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: "Login",
                   textColor: Colors.white,
                   onPressed: _login,
-                  color: Colors.green, // Custom button color
+                  color: Colors.green,
                 ),
                 const SizedBox(height: 15),
                 Row(
@@ -106,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   goToSignup(BuildContext context) => Navigator.push(
     context,
     MaterialPageRoute(builder: (context) => const SignupScreen()),
@@ -119,9 +117,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   _login() async {
     try {
+      // Disable the login button temporarily
+      setState(() {});
       final user = await _auth.loginUserWithUsernameAndPassword(
-        _username.text,
-        _password.text,
+        _username.text.trim(),
+        _password.text.trim(),
       );
 
       if (user != null) {
@@ -146,18 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
           } else if (status == 'Banned') {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Your account have been banned.'),
+                content: Text('Your account has been banned.'),
               ),
             );
             return;
-          }else if (status == 'Pending') {
+          } else if (status == 'Pending') {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Your registration request is still pending.'),
               ),
             );
             return;
-          } else if (status == 'Active' || status == null) {
+          } else if (status == 'active' || status == null || status == 'Active') {
             // Navigate to the appropriate home page based on the role
             if (role == 'Maintenance Provider') {
               log("Maintenance Provider Logged In");
@@ -198,9 +198,8 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Text('Login failed: $e'),
         ),
       );
+    } finally {
+      setState(() {});
     }
   }
-
-
-
 }
