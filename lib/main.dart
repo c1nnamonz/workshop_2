@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 
 
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   Firebase.initializeApp(
@@ -32,6 +33,8 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+
 
 
 

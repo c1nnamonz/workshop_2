@@ -106,6 +106,7 @@ class _UserHomepageState extends State<UserHomepage> {
   }
 }
 
+
 class HomePageContent extends StatefulWidget {
   @override
   _HomePageContentState createState() => _HomePageContentState();
@@ -114,6 +115,16 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   bool _showMore = false;
   String _searchQuery = '';
+  String? selectedCategory;
+
+  // Cached services
+  List<Map<String, dynamic>> _cachedServices = [];
+  bool _isFetching = true; // Tracks fetching state
+  String _fetchError = ''; // Fetch error message
+
+  List<String> _getVisibleCategories() {
+    return _showMore ? categories : categories.take(8).toList();
+  }
 
   final List<String> categories = [
     'All',
@@ -147,63 +158,92 @@ class _HomePageContentState extends State<HomePageContent> {
     'Pool Maintenance': 'images/pool.png',
   };
 
-  String? selectedCategory;
-
-  List<String> _getVisibleCategories() {
-    return _showMore ? categories : categories.take(8).toList();
+  @override
+  void initState() {
+    super.initState();
+    _fetchServices(); // Fetch services on initialization
   }
 
-  Future<List<Map<String, dynamic>>> _fetchServices() async {
-    List<Map<String, dynamic>> serviceList = [];
+  Future<void> _fetchServices() async {
+    setState(() {
+      _isFetching = true;
+      _fetchError = '';
+    });
+
     try {
+      // Fetch all service documents
       QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
           .collection('services')
           .get();
 
+      List<Map<String, dynamic>> serviceList = [];
+
       for (var serviceDoc in serviceSnapshot.docs) {
         String userId = serviceDoc['userId'];
 
-        // Fetch user details based on userId
+        // Fetch user document associated with the service
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
             .get();
 
         if (userDoc.exists) {
-          serviceList.add({
-            'id': serviceDoc.id,
-            'description': serviceDoc['description'] ?? 'Unknown Description',
-            'price': serviceDoc['price'] ?? 'Unknown Price',
-            'service': serviceDoc['service'] ?? 'Unknown Service',
-            'rating': serviceDoc['rating'] ?? 0.0,
-            'providerId': userId,
-            'companyName': userDoc['companyName'] ?? 'Unknown Company',
-            'location': userDoc['location'] ?? 'Unknown Location',
-          });
+          Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+          String userStatus = (userData['status'] ?? '').toString().toLowerCase();
+
+          // Check if user status is 'active' or 'Active'
+          if (userStatus == 'active') {
+            serviceList.add({
+              'id': serviceDoc.id,
+              'description': serviceDoc['description'] ?? '',
+              'price': serviceDoc['price'] ?? '',
+              'service': serviceDoc['service'] ?? '',
+              'rating': serviceDoc['rating'] ?? 0.0,
+              'providerId': userId,
+              'companyName': userData['companyName'] ?? '',
+              'location': userData['location'] ?? '',
+              'email': userData['email'] ?? '',
+              'phone': userData['phoneNumber'] ?? '',
+              'birthday': userData['birthday'] ?? '',
+              'gender': userData['gender'] ?? '',
+            });
+          }
         }
       }
-    } catch (e) {
-      print("Error fetching services: $e");
-    }
 
-    return serviceList;
+      setState(() {
+        _cachedServices = serviceList; // Cache the fetched services
+      });
+    } catch (e) {
+      setState(() {
+        _fetchError = "Error fetching services: $e";
+      });
+    } finally {
+      setState(() {
+        _isFetching = false;
+      });
+    }
   }
 
-  List<Widget> _getServiceCards(List<Map<String, dynamic>> serviceList) {
+
+
+  List<Widget> _getServiceCards() {
+    List<Map<String, dynamic>> filteredServices = _cachedServices;
+
     if (selectedCategory != null && selectedCategory != 'All') {
-      serviceList = serviceList.where((service) {
+      filteredServices = filteredServices.where((service) {
         return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
       }).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
-      serviceList = serviceList.where((service) {
+      filteredServices = filteredServices.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
-    if (serviceList.isEmpty) {
+    if (filteredServices.isEmpty) {
       return [
         const Padding(
           padding: EdgeInsets.only(top: 20.0),
@@ -218,7 +258,7 @@ class _HomePageContentState extends State<HomePageContent> {
       ];
     }
 
-    return serviceList.map((service) {
+    return filteredServices.map((service) {
       String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
 
       return GestureDetector(
@@ -249,7 +289,8 @@ class _HomePageContentState extends State<HomePageContent> {
                     const SizedBox(height: 5),
                     Text('Rating: ${service['rating'] ?? '0'}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 5),
-                    Text('Location: ${service['location'] ?? 'Unknown Location'}', style: const TextStyle(fontSize: 16)),
+                    Text('Location: ${service['location'] ?? 'Unknown Location'}',
+                        style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -313,112 +354,105 @@ class _HomePageContentState extends State<HomePageContent> {
     }).toList();
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _fetchServices(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return const Center(child: Text('Error fetching services'));
-        }
-
-        List<Map<String, dynamic>> services = snapshot.data ?? [];
-
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(30.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Image.asset(
-                    'images/logo1.png',
-                    width: 100,
-                    height: 100,
-                  ),
+    return _isFetching
+        ? const Center(child: CircularProgressIndicator())
+        : _fetchError.isNotEmpty
+        ? Center(child: Text(_fetchError))
+        : SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Image.asset(
+                'images/logo1.png',
+                width: 100,
+                height: 100,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value; // Update search query
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search services, provider, or category',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: const Icon(Icons.search, color: Colors.black),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15.0),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  onChanged: (value) {
+                contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
+                fillColor: Colors.white,
+                filled: true,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Categories',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 5.0,
+              runSpacing: 20.0,
+              children: _getVisibleCategories().map((category) {
+                return GestureDetector(
+                  onTap: () {
                     setState(() {
-                      _searchQuery = value;
+                      selectedCategory = category == 'All' ? null : category;
                     });
                   },
-                  decoration: InputDecoration(
-                    hintText: 'Search services, provider, or category',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.search, color: Colors.black),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15.0),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
-                    fillColor: Colors.white,
-                    filled: true,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Categories',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 5.0,
-                  runSpacing: 20.0,
-                  children: _getVisibleCategories().map((category) {
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedCategory = category == 'All' ? null : category;
-                        });
-                      },
-                      child: Container(
-                        width: (MediaQuery.of(context).size.width - 80) / 4,
-                        child: CategoryCard(
-                          image: Image.asset(
-                            categoryIcons[category]!,
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
-                          ),
-                          category: category,
-                        ),
+                  child: Container(
+                    width: (MediaQuery.of(context).size.width - 80) / 4,
+                    child: CategoryCard(
+                      image: Image.asset(
+                        categoryIcons[category]!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
                       ),
-                    );
-                  }).toList(),
-                ),
-                Align(
-                  alignment: Alignment.center,
-                  child: TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _showMore = !_showMore;
-                      });
-                    },
-                    child: Text(
-                      _showMore ? 'Show less' : 'Show more',
-                      style: const TextStyle(color: Colors.deepOrange, fontSize: 16),
+                      category: category,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Recommended Services',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                const SizedBox(height: 10),
-                Column(
-                  children: _getServiceCards(services),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-          ),
-        );
-      },
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showMore = !_showMore;
+                  });
+                },
+                child: Text(
+                  _showMore ? 'Show less' : 'Show more',
+                  style: const TextStyle(color: Colors.deepOrange, fontSize: 16),
+                ),
+              ),
+            ),
+
+
+            const SizedBox(height: 20),
+            const Text(
+              'Recommended Services',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 10),
+            Column(
+              children: _getServiceCards(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
+
