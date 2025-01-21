@@ -336,6 +336,8 @@ class _SignupScreenState extends State<SignupScreen> {
           'location': location,
           'status': isMaintenanceProvider ? 'pending' : 'active', // Default value
           'certificates': uploadedCertificateUrls,  // Store URLs of uploaded certificates
+          'serviceArea': isMaintenanceProvider ? 'General Area' : null,  // Default value
+          'category': isMaintenanceProvider ? [] : null, // Initialize 'category' as an empty array
         };
 
         // Save to Firestore

@@ -13,21 +13,7 @@ class _ServicesManagerState extends State<ServicesManager> {
 
   String? _userId;
   List<Map<String, dynamic>> _services = [];
-
-  final List<String> _serviceNames = [
-    'Plumbing',
-    'Electrical',
-    'Air-cond',
-    'Cleaning',
-    'Renovation',
-    'Security',
-    'Landscaping',
-    'Pest Control',
-    'Appliance Repair',
-    'Furniture Assembly',
-    'Smart Home Installation',
-    'Pool Maintenance',
-  ];
+  List<String> _availableCategories = []; // Dynamically fetched categories
 
   @override
   void initState() {
@@ -48,7 +34,28 @@ class _ServicesManagerState extends State<ServicesManager> {
       _userId = currentUser.uid;
     });
 
+    await _loadUserCategories();
     _loadServices();
+  }
+
+  Future<void> _loadUserCategories() async {
+    if (_userId == null) return;
+
+    try {
+      final userDoc = await _firestore.collection("users").doc(_userId).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (data != null && data.containsKey("category")) {
+          setState(() {
+            _availableCategories = List<String>.from(data["category"]);
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load categories: $e")),
+      );
+    }
   }
 
   Future<void> _loadServices() async {
@@ -165,10 +172,10 @@ class _ServicesManagerState extends State<ServicesManager> {
                       children: [
                         DropdownButtonFormField<String>(
                           value: service["service"].isNotEmpty ? service["service"] : null,
-                          items: _serviceNames
-                              .map((name) => DropdownMenuItem(
-                            value: name,
-                            child: Text(name),
+                          items: _availableCategories
+                              .map((category) => DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
                           ))
                               .toList(),
                           decoration: const InputDecoration(labelText: "Service Name"),
