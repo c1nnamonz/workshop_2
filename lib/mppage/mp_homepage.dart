@@ -83,9 +83,6 @@ class _MaintenanceProviderHomePageState
     }
   }
 
-
-
-
   Future<Map<String, int>> _fetchCounts() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -399,8 +396,6 @@ class _MaintenanceProviderHomePageState
       ),
     );
   }
-
-
 
   void _onItemTapped(int index) {
     setState(() {
