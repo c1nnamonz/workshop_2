@@ -268,13 +268,23 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               ),
               const SizedBox(height: 10),
             ],
-
+            const SizedBox(height: 10),
 
             if (paymentStatus == 'Paid') ...[
               // Green tick symbol to indicate payment
               const Icon(Icons.check_circle, color: Colors.green, size: 30),
+              const SizedBox(height: 21),
+              const Text(
+                'Payment made successfully!', // Added payment confirmation message
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, color: Colors.green),
+              ),
               const SizedBox(height: 20),
+              const Text(
+                'Service Completed!',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+              ),
             ],
+
 
             if (paymentStatus != 'Paid' && status != 'Cancelled') ...[
               ElevatedButton(
