@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'ServiceRequest.dart';  // Make sure to import ServiceRequest.dart
 
 class ServicesManager extends StatefulWidget {
   @override
@@ -229,6 +230,26 @@ class _ServicesManagerState extends State<ServicesManager> {
                 child: const Text("Save Services"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Button to navigate to the ServiceRequest page
+              ElevatedButton(
+                onPressed: () {
+                  // Navigate to the ServiceRequest page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ServiceRequest(), // Call the ServiceRequest widget here
+                    ),
+                  );
+                },
+                child: const Text("Request New Service"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
