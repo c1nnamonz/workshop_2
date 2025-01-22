@@ -415,7 +415,9 @@ class _SignupScreenState extends State<SignupScreen> {
           'businessCertificate': businessCertificateUrl, // URL of uploaded business certificate
           'serviceArea': isMaintenanceProvider ? 'General Area' : null, // Default value
           'category': isMaintenanceProvider ? [] : null, // Initialize 'category' as an empty array
+          'providerType': providerType, // Store the provider type (Personal Provider or Company)
         };
+
 
         // Save to Firestore
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userData);
