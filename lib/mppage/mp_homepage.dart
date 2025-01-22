@@ -70,18 +70,32 @@ class _MaintenanceProviderHomePageState
       for (var doc in ongoingSnapshot.docs) {
         final data = doc.data();
         if (data['bookingDate'] != null) {
-          DateTime date = DateTime.parse(data['bookingDate']);
-          DateTime dateOnly = DateTime(date.year, date.month, date.day); // Strip time
-          bookings[dateOnly] = bookings[dateOnly] ?? [];
-          bookings[dateOnly]?.add(data['serviceName'] ?? 'Ongoing Booking');
+          try {
+            // Manually parse the non-standard date format
+            List<String> parts = data['bookingDate'].split('-');
+            if (parts.length == 3) {
+              int year = int.parse(parts[0]);
+              int month = int.parse(parts[1]);
+              int day = int.parse(parts[2]);
+
+              DateTime dateOnly = DateTime(year, month, day); // Create DateTime object
+              bookings[dateOnly] = bookings[dateOnly] ?? [];
+              bookings[dateOnly]?.add(data['serviceName'] ?? 'Ongoing Booking');
+            }
+          } catch (e) {
+            print('Error parsing bookingDate: $e');
+          }
         }
       }
 
       setState(() {
         _bookingsByDate = bookings;
       });
+
+      print('Bookings by Date: $_bookingsByDate'); // Debug log to verify
     }
   }
+
 
   Future<Map<String, int>> _fetchCounts() async {
     final user = FirebaseAuth.instance.currentUser;
