@@ -33,6 +33,10 @@ dependencies:
   google_maps_flutter: ^2.2.0
   flutter:
     sdk: flutter
+  permission_handler: ^11.0.0
+  table_calendar: ^3.0.8
+
+
 
 
 
@@ -43,7 +47,13 @@ dependencies:
   firebase_auth: ^5.3.2
   cloud_firestore: ^5.4.5
   get: ^4.6.5
-
+  google_generative_ai: ^0.4.6
+  intl: ^0.17.0
+  firebase_storage: ^12.3.7
+  flutter_rating_bar: ^4.0.0
+  firebase_messaging: ^15.2.0
+  file_picker: ^8.1.7
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:
@@ -111,3 +121,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

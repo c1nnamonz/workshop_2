@@ -1,4 +1,6 @@
 import 'dart:developer';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
@@ -6,7 +8,8 @@ import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Make sure to import this for GeoPoint
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -20,14 +23,15 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _certificateController = TextEditingController();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   bool isMaintenanceProvider = false;
+  String? providerType;
   Position? _currentPosition;
   LatLng? _selectedLocation;
+  File? _businessCertificate;
+  List<File>? _selectedCertificates = [];
 
   @override
   void dispose() {
@@ -35,9 +39,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _certificateController.dispose();
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _companyNameController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -48,12 +50,10 @@ class _SignupScreenState extends State<SignupScreen> {
     _getUserLocation();
   }
 
-  // Function to get user's current location
   Future<void> _getUserLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,12 +62,10 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // Check and request location permission
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse &&
-          permission != LocationPermission.always) {
+      if (permission == LocationPermission.denied) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location permission denied')),
         );
@@ -75,46 +73,37 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     }
 
-    // Get current position
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentPosition = position;
     });
   }
 
-  void _openMapDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _currentPosition != null
-                    ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                    : const LatLng(3.1390, 101.6869), // Default to KL if location is not available
-                zoom: 15,
-              ),
-              onTap: (LatLng location) {
-                setState(() {
-                  _selectedLocation = location;
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
+  Future<void> _selectCertificates() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      allowMultiple: true,
     );
+
+    if (result != null) {
+      setState(() {
+        _selectedCertificates = result.files.map((file) => File(file.path!)).toList();
+      });
+    }
+  }
+
+  Future<void> _selectBusinessCertificate() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result != null) {
+      setState(() {
+        _businessCertificate = File(result.files.single.path!);
+      });
+    }
   }
 
   @override
@@ -122,7 +111,6 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background image
           Container(
             height: double.infinity,
             decoration: const BoxDecoration(
@@ -132,8 +120,6 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-
-          // Form and other content
           SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -151,14 +137,13 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // User / Maintenance Provider toggle buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     TextButton(
                       onPressed: () => setState(() {
                         isMaintenanceProvider = false;
+                        providerType = null;
                       }),
                       style: TextButton.styleFrom(
                         backgroundColor: !isMaintenanceProvider ? Colors.green : Colors.grey[300],
@@ -180,8 +165,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                // Form Fields
                 CustomTextField(
                   controller: _emailController,
                   hint: 'Enter your email',
@@ -209,71 +192,86 @@ class _SignupScreenState extends State<SignupScreen> {
                   isPassword: true,
                 ),
                 const SizedBox(height: 10),
-
-                // Name Fields
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _firstNameController,
-                        hint: 'Enter your first name',
-                        label: 'First Name',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _lastNameController,
-                        hint: 'Enter your last name',
-                        label: 'Last Name',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // Phone number
                 CustomTextField(
                   controller: _phoneController,
                   hint: 'Enter your phone number',
                   label: 'Phone Number',
-                  keyboardType: TextInputType.phone,
+                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 10),
-
-                // Certificate field for Maintenance Provider
                 if (isMaintenanceProvider) ...[
+                  const SizedBox(height: 10),
                   CustomTextField(
-                    controller: _certificateController,
-                    hint: 'Certification Number',
-                    label: 'Certificate',
+                    controller: _companyNameController,
+                    hint: 'Enter your company name',
+                    label: 'Company Name',
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: _openMapDialog,
-                    child: const Text('Set Location on Map'),
+                  DropdownButtonFormField<String>(
+                    value: providerType,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'Personal Provider',
+                        child: Text('Personal Provider'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Company',
+                        child: Text('Company'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        providerType = value;
+                      });
+                    },
+                    hint: const Text('Select Provider Type'),
                   ),
-                  if (_selectedLocation != null)
+                  if (providerType == 'Company') ...[
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: _selectBusinessCertificate,
+                      child: Text(_businessCertificate == null
+                          ? 'Upload Business Certificate (PDF)'
+                          : 'Business Certificate Selected'),
+                    ),
+                    if (_businessCertificate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Selected File: ${_businessCertificate!.path.split('/').last}',
+                          style: const TextStyle(color: Colors.black87),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: _selectCertificates,
+                    child: Text(_selectedCertificates == null || _selectedCertificates!.isEmpty
+                        ? 'Upload Certificates (PDF)'
+                        : 'Certificates Selected'),
+                  ),
+                  if (_selectedCertificates != null && _selectedCertificates!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Selected Location: ${_selectedLocation!.latitude}, ${_selectedLocation!.longitude}',
-                        style: const TextStyle(color: Colors.black87),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _selectedCertificates!
+                            .map((file) => Text(
+                          'Selected File: ${file.path.split('/').last}',
+                          style: const TextStyle(color: Colors.black87),
+                        ))
+                            .toList(),
                       ),
                     ),
                 ],
                 const SizedBox(height: 20),
-
-                // Sign Up button
                 CustomButton(
                   textColor: Colors.white,
                   color: Colors.green,
                   label: 'Sign Up',
                   onPressed: _signUp,
-                  width: 140,  // Set a smaller width
-                  height: 42,  // Set a smaller height
+                  width: 140,
+                  height: 42,
                 ),
-
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -304,17 +302,58 @@ class _SignupScreenState extends State<SignupScreen> {
     MaterialPageRoute(builder: (context) => const LoginScreen()),
   );
 
+  Future<List<String>> _uploadCertificates(List<File> files, String userId) async {
+    List<String> uploadedUrls = [];
+
+    try {
+      for (var file in files) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
+
+        log('Uploading file: ${file.path}');
+
+        final uploadTask = await storageRef.putFile(file);
+        log('Upload completed: ${uploadTask.ref.name}');
+
+        final fileUrl = await uploadTask.ref.getDownloadURL();
+        uploadedUrls.add(fileUrl);
+      }
+
+      return uploadedUrls;
+    } catch (e) {
+      log('Certificate upload error: $e');
+      throw 'Failed to upload certificates: $e';
+    }
+  }
+
+  Future<String?> _uploadBusinessCertificate(File file, String userId) async {
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('business_certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
+
+      log('Uploading business certificate: ${file.path}');
+
+      final uploadTask = await storageRef.putFile(file);
+      log('Business certificate upload completed: ${uploadTask.ref.name}');
+
+      final fileUrl = await uploadTask.ref.getDownloadURL();
+      return fileUrl;
+    } catch (e) {
+      log('Business certificate upload error: $e');
+      throw 'Failed to upload business certificate: $e';
+    }
+  }
+
   void _signUp() async {
     final email = _emailController.text.trim();
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
+    final companyName = _companyNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
-    final certificate = isMaintenanceProvider ? _certificateController.text.trim() : null;
 
-    // Updated location logic
     final location = _selectedLocation != null
         ? GeoPoint(_selectedLocation!.latitude, _selectedLocation!.longitude)
         : null;
@@ -323,12 +362,11 @@ class _SignupScreenState extends State<SignupScreen> {
         username.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty ||
-        firstName.isEmpty ||
-        lastName.isEmpty ||
+        (isMaintenanceProvider ? companyName.isEmpty : false) ||
         phoneNumber.isEmpty ||
-        (isMaintenanceProvider && certificate!.isEmpty)) {
+        (isMaintenanceProvider && (_selectedCertificates == null || _selectedCertificates!.isEmpty))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
+        const SnackBar(content: Text('Please fill in all fields')),
       );
       return;
     }
@@ -340,27 +378,57 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-
-
     try {
       final user = await AuthService().createUserWithUsernameAndEmail(
         username,
         email,
         password,
         role: isMaintenanceProvider ? 'Maintenance Provider' : 'User',
-        certificate: certificate,
-        firstName: firstName,
-        lastName: lastName,
+        companyName: isMaintenanceProvider ? companyName : null,
         phoneNumber: phoneNumber,
         location: location,
       );
+
       if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        String? businessCertificateUrl;
+        List<String>? uploadedCertificateUrls;
+
+        // Upload business certificate if applicable
+        if (providerType == 'Company' && _businessCertificate != null) {
+          businessCertificateUrl = await _uploadBusinessCertificate(_businessCertificate!, user.uid);
+        }
+
+        // Upload other certificates if applicable
+        if (isMaintenanceProvider && _selectedCertificates != null && _selectedCertificates!.isNotEmpty) {
+          uploadedCertificateUrls = await _uploadCertificates(_selectedCertificates!, user.uid);
+        }
+
+        final userData = {
+          'username': username,
+          'email': email,
+          'phoneNumber': phoneNumber,
+          'role': isMaintenanceProvider ? 'Maintenance Provider' : 'User',
+          'companyName': isMaintenanceProvider ? companyName : null,
+          'location': location,
+          'status': isMaintenanceProvider ? 'pending' : 'active', // Default value
+          'certificates': uploadedCertificateUrls, // Store URLs of uploaded certificates
+          'businessCertificate': businessCertificateUrl, // URL of uploaded business certificate
+          'serviceArea': isMaintenanceProvider ? 'General Area' : null, // Default value
+          'category': isMaintenanceProvider ? [] : null, // Initialize 'category' as an empty array
+        };
+
+        // Save to Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userData);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign-up successful!')),
         );
+
+        goToLogin(context);
       } else {
-        throw "Failed to sign up";
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User creation failed.')),
+        );
       }
     } catch (e) {
       log('Sign-up error: $e');
@@ -369,4 +437,5 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     }
   }
+
 }

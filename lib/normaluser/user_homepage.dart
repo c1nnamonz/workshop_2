@@ -1,15 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:projects/auth/auth_service.dart';
 import 'package:projects/auth/login_screen.dart';
 import 'package:projects/normaluser/categoryCard.dart';
 import 'package:projects/normaluser/serviceCard.dart';
-import 'viewService.dart';
+import 'Chatscreen.dart';
+import 'booking_form.dart';
+import 'chatbot.dart';
 import 'bookings.dart';
 import 'inbox.dart';
 import 'profile.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Import Google Maps package
 
 class UserHomepage extends StatefulWidget {
   @override
@@ -55,8 +56,15 @@ class _UserHomepageState extends State<UserHomepage> {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
-        body: _pages[_selectedIndex],
+        body: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('images/chatbguser.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: _pages[_selectedIndex],
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
@@ -83,10 +91,21 @@ class _UserHomepageState extends State<UserHomepage> {
             ),
           ],
         ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ChatBotScreen()),
+            );
+          },
+          child: const Icon(Icons.chat),
+          backgroundColor: const Color(0xFF4AA94E),
+        ),
       ),
     );
   }
 }
+
 
 class HomePageContent extends StatefulWidget {
   @override
@@ -96,60 +115,15 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   bool _showMore = false;
   String _searchQuery = '';
-  String _currentLocation = 'Loading...'; // **Added variable to store location**
+  String? selectedCategory;
 
-  late GoogleMapController mapController;
+  // Cached services
+  List<Map<String, dynamic>> _cachedServices = [];
+  bool _isFetching = true; // Tracks fetching state
+  String _fetchError = ''; // Fetch error message
 
-  // **Fetch current location when the page loads**
-  Future<void> _getUserLocation() async {
-    try {
-      // Check if location service is enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          _currentLocation = 'Location services are disabled.'; // **Error message for location service**
-        });
-        return;
-      }
-
-      // Check for location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() {
-            _currentLocation = 'Location permission denied'; // **Error message for location permission**
-          });
-          return;
-        }
-      }
-
-      // Get the current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      setState(() {
-        _currentLocation =
-        '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}'; // **Display the latitude and longitude**
-      });
-
-      // Move the camera to the user's location
-      mapController.moveCamera(CameraUpdate.newLatLng(
-        LatLng(position.latitude, position.longitude),
-      ));
-
-    } catch (e) {
-      setState(() {
-        _currentLocation = 'Failed to get location: $e'; // **Error handling for location fetching**
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _getUserLocation(); // **Call the method to fetch location on initialization**
+  List<String> _getVisibleCategories() {
+    return _showMore ? categories : categories.take(8).toList();
   }
 
   final List<String> categories = [
@@ -184,64 +158,92 @@ class _HomePageContentState extends State<HomePageContent> {
     'Pool Maintenance': 'images/pool.png',
   };
 
-  String? selectedCategory;
-
-  List<String> _getVisibleCategories() {
-    return _showMore ? categories : categories.take(8).toList();
+  @override
+  void initState() {
+    super.initState();
+    _fetchServices(); // Fetch services on initialization
   }
 
-  final Map<String, List<Map<String, String>>> services = {
-    'Plumbing': [
-      {
-        'provider': 'John\'s Plumbing',
-        'service': 'Plumbing',
-        'price': 'RM100 - RM300',
-        'rating': '4.5',
-        'location': 'Johor Bahru, Johor',
-        'image': 'images/plumbing.png',
-      },
-    ],
-    'Electrical': [
-      {
-        'provider': 'Reliable Electricians',
-        'service': 'Electrical',
-        'price': 'RM150 - RM500',
-        'rating': '4.7',
-        'location': 'Melaka',
-        'image': 'images/electrical.png',
-      },
-    ],
-    'Cleaning': [
-      {
-        'provider': 'Super Clean Services',
-        'service': 'Cleaning',
-        'price': 'RM80 - RM200',
-        'rating': '4.8',
-        'location': 'Kuala Lumpur',
-        'image': 'images/cleaning.png',
-      },
-    ],
-  };
+  Future<void> _fetchServices() async {
+    setState(() {
+      _isFetching = true;
+      _fetchError = '';
+    });
+
+    try {
+      // Fetch all service documents
+      QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
+          .collection('services')
+          .get();
+
+      List<Map<String, dynamic>> serviceList = [];
+
+      for (var serviceDoc in serviceSnapshot.docs) {
+        String userId = serviceDoc['userId'];
+
+        // Fetch user document associated with the service
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+          String userStatus = (userData['status'] ?? '').toString().toLowerCase();
+
+          // Check if user status is 'active' or 'Active'
+          if (userStatus == 'active') {
+            serviceList.add({
+              'id': serviceDoc.id,
+              'description': serviceDoc['description'] ?? '',
+              'price': serviceDoc['price'] ?? '',
+              'service': serviceDoc['service'] ?? '',
+              'rating': serviceDoc['rating'] ?? 0.0,
+              'providerId': userId,
+              'companyName': userData['companyName'] ?? '',
+              'location': userData['location'] ?? '',
+              'email': userData['email'] ?? '',
+              'phone': userData['phoneNumber'] ?? '',
+              'birthday': userData['birthday'] ?? '',
+              'gender': userData['gender'] ?? '',
+            });
+          }
+        }
+      }
+
+      setState(() {
+        _cachedServices = serviceList; // Cache the fetched services
+      });
+    } catch (e) {
+      setState(() {
+        _fetchError = "Error fetching services: $e";
+      });
+    } finally {
+      setState(() {
+        _isFetching = false;
+      });
+    }
+  }
+
+
 
   List<Widget> _getServiceCards() {
-    List<Map<String, String>> serviceList = [];
+    List<Map<String, dynamic>> filteredServices = _cachedServices;
 
-    if (selectedCategory == null || selectedCategory == 'All') {
-      services.forEach((_, value) {
-        serviceList.addAll(value);
-      });
-    } else if (services.containsKey(selectedCategory)) {
-      serviceList = services[selectedCategory!]!;
-    }
-
-    if (_searchQuery.isNotEmpty) {
-      serviceList = serviceList.where((service) {
-        return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['provider']!.toLowerCase().contains(_searchQuery.toLowerCase());
+    if (selectedCategory != null && selectedCategory != 'All') {
+      filteredServices = filteredServices.where((service) {
+        return service['service']!.toLowerCase() == selectedCategory!.toLowerCase();
       }).toList();
     }
 
-    if (serviceList.isEmpty) {
+    if (_searchQuery.isNotEmpty) {
+      filteredServices = filteredServices.where((service) {
+        return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    if (filteredServices.isEmpty) {
       return [
         const Padding(
           padding: EdgeInsets.only(top: 20.0),
@@ -256,22 +258,110 @@ class _HomePageContentState extends State<HomePageContent> {
       ];
     }
 
-    return serviceList.map((service) {
-      return ServiceCard(
-        providerName: service['provider']!,
-        serviceType: service['service']!,
-        serviceName: service['service']!,
-        rangePrice: service['price']!,
-        rating: double.parse(service['rating']!),
-        location: service['location']!,
-        image: service['image']!,
+    return filteredServices.map((service) {
+      String imagePath = categoryIcons[service['service']] ?? 'images/default.png';
+
+      return GestureDetector(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      imagePath,
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.cover,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      service['service'] ?? 'Unknown Service',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text('Price: ${service['price'] ?? 'N/A'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Rating: ${service['rating'] ?? '0'}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text('Location: ${service['location'] ?? 'Unknown Location'}',
+                        style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingForm(
+                                  providerId: service['providerId'] ?? '',
+                                  serviceId: service['id'] ?? '',
+                                  serviceName: service['service'] ?? '',
+                                  price: service['price'] ?? '',
+                                  description: service['description'] ?? '',
+                                  companyName: service['companyName'] ?? '',
+                                  location: service['location'] ?? '',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Book Now'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            String userId = FirebaseAuth.instance.currentUser!.uid;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  providerId: service['providerId'] ?? '',
+                                  userId: userId,
+                                  otherUserName: service['companyName'] ?? 'Unknown Company',
+                                  otherUserId: service['providerId'] ?? '',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Chat'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        child: ServiceCard(
+          serviceType: service['service'] ?? 'Unknown Type',
+          serviceName: service['service'] ?? 'Unknown Service',
+          rangePrice: service['price'] ?? 'N/A',
+          rating: (service['rating'] ?? 0.0).toDouble(),
+          location: service['location'] ?? 'Unknown Location',
+          companyName: service['companyName'] ?? 'Unknown Company',
+          providerId: service['providerId'] ?? '',
+          imagePath: imagePath,
+        ),
       );
     }).toList();
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return _isFetching
+        ? const Center(child: CircularProgressIndicator())
+        : _fetchError.isNotEmpty
+        ? Center(child: Text(_fetchError))
+        : SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(30.0),
         child: Column(
@@ -288,7 +378,7 @@ class _HomePageContentState extends State<HomePageContent> {
             TextField(
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value;
+                  _searchQuery = value; // Update search query
                 });
               },
               decoration: InputDecoration(
@@ -298,7 +388,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15.0),
                 ),
-                contentPadding: EdgeInsets.symmetric(vertical: 15.0),
+                contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
                 fillColor: Colors.white,
                 filled: true,
               ),
@@ -342,59 +432,27 @@ class _HomePageContentState extends State<HomePageContent> {
                     _showMore = !_showMore;
                   });
                 },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _showMore ? 'Collapse' : 'More Category',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Colors.blue,
-                        decorationThickness: 2,
-                      ),
-                    ),
-                    Icon(
-                      _showMore ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: Colors.blue,
-                      size: 16,
-                    ),
-                  ],
+                child: Text(
+                  _showMore ? 'Show less' : 'Show more',
+                  style: const TextStyle(color: Colors.deepOrange, fontSize: 16),
                 ),
               ),
             ),
-            SizedBox(height: 20),
+
+
+            const SizedBox(height: 20),
             const Text(
-              'Available Services',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+              'Recommended Services',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
-            SizedBox(height: 10),
-            // **Location Display**
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(
-                'Your Location: $_currentLocation', // **Show current location**
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-              ),
+            const SizedBox(height: 10),
+            Column(
+              children: _getServiceCards(),
             ),
-            // Google Maps Widget
-            SizedBox(
-              height: 250, // Adjust height as needed
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(0.0, 0.0), // Default initial location
-                  zoom: 10,
-                ),
-                onMapCreated: (GoogleMapController controller) {
-                  mapController = controller;
-                },
-              ),
-            ),
-            // **Service Cards**
-            Column(children: _getServiceCards()),
           ],
         ),
       ),
     );
   }
 }
+

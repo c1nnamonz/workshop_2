@@ -8,7 +8,7 @@ import 'package:projects/widgets/button.dart';
 import 'package:projects/widgets/textfield.dart';
 import 'package:flutter/material.dart';
 
-import '../userpage/mp_homepage.dart';
+import '../mppage/mp_homepage.dart';
 import '../normaluser/user_homepage.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,12 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    super.dispose();
     _username.dispose();
     _password.dispose();
+    super.dispose();
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black, // Ensure the text is visible on the background
+                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 50),
@@ -78,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: "Login",
                   textColor: Colors.white,
                   onPressed: _login,
-                  color: Colors.green, // Custom button color
+                  color: Colors.green,
                 ),
                 const SizedBox(height: 15),
                 Row(
@@ -106,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   goToSignup(BuildContext context) => Navigator.push(
     context,
     MaterialPageRoute(builder: (context) => const SignupScreen()),
@@ -118,37 +116,90 @@ class _LoginScreenState extends State<LoginScreen> {
   );
 
   _login() async {
-    final user = await _auth.loginUserWithUsernameAndPassword(
-        _username.text, _password.text);
+    try {
+      // Disable the login button temporarily
+      setState(() {});
+      final user = await _auth.loginUserWithUsernameAndPassword(
+        _username.text.trim(),
+        _password.text.trim(),
+      );
 
-    if (user != null) {
-      // Fetch user details from Firestore to determine the role
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      if (user != null) {
+        // Fetch user details from Firestore
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      if (userDoc.exists) {
-        final role = userDoc.data()?['role'] ?? 'User';
+        if (userDoc.exists) {
+          final role = userDoc.data()?['role'] ?? 'User';
+          final status = userDoc.data()?['status'];
 
-        if (role == 'Maintenance Provider') {
-          log("Maintenance Provider Logged In");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MaintenanceProviderHomePage()),
-          );
+          // Handle login based on the status field
+          if (status == 'Rejected') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your registration request has been rejected.'),
+              ),
+            );
+            return;
+          } else if (status == 'Banned') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your account has been banned.'),
+              ),
+            );
+            return;
+          } else if (status == 'Pending'|| status == 'pending') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your registration request is still pending.'),
+              ),
+            );
+            return;
+          } else if (status == 'active' || status == null || status == 'Active') {
+            // Navigate to the appropriate home page based on the role
+            if (role == 'Maintenance Provider') {
+              log("Maintenance Provider Logged In");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MaintenanceProviderHomePage(),
+                ),
+              );
+            } else {
+              log("Normal User Logged In");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserHomepage(),
+                ),
+              );
+            }
+          }
         } else {
-          log("Normal User Logged In");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => UserHomepage()),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User data not found. Please contact support.'),
+            ),
           );
         }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid username or password.'),
+          ),
+        );
       }
-    } else {
-      log("Login failed");
+    } catch (e) {
+      log("Login error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: $e'),
+        ),
+      );
+    } finally {
+      setState(() {});
     }
   }
-
-
 }
