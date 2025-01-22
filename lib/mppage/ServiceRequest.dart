@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ServiceRequest extends StatefulWidget {
   @override
@@ -12,6 +13,7 @@ class ServiceRequest extends StatefulWidget {
 class _ServiceRequestState extends State<ServiceRequest> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String? _selectedCategory;
   File? _selectedCertificate;
@@ -60,6 +62,16 @@ class _ServiceRequestState extends State<ServiceRequest> {
     });
 
     try {
+      // Get the current user ID from FirebaseAuth
+      User? user = _auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User is not logged in. Please log in to submit a request.')),
+        );
+        return;
+      }
+      String userId = user.uid; // Get user ID
+
       // Upload the certificate to Firebase Storage
       String fileName = DateTime.now().millisecondsSinceEpoch.toString() + '.pdf';
       Reference storageRef = _storage.ref().child('certificates/$fileName');
@@ -68,12 +80,14 @@ class _ServiceRequestState extends State<ServiceRequest> {
 
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // Save request to Firestore
+      // Save request to Firestore, including the new status and userId fields
       await _firestore.collection('serviceRequests').add({
         'category': _selectedCategory,
         'certificateUrl': downloadUrl,
         'description': _requestDescriptionController.text,
         'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending',  // Default status
+        'userId': userId,     // Add userId field
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
