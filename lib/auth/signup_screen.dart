@@ -197,6 +197,13 @@ class _SignupScreenState extends State<SignupScreen> {
                   hint: 'Enter your company name',
                   label: 'Company Name',
                 ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: _phoneController,
+                  hint: 'Enter your phone number',
+                  label: 'Phone Number',
+                  keyboardType: TextInputType.number,
+                ),
                 if (isMaintenanceProvider) ...[
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
@@ -320,6 +327,25 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  Future<String?> _uploadBusinessCertificate(File file, String userId) async {
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('business_certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
+
+      log('Uploading business certificate: ${file.path}');
+
+      final uploadTask = await storageRef.putFile(file);
+      log('Business certificate upload completed: ${uploadTask.ref.name}');
+
+      final fileUrl = await uploadTask.ref.getDownloadURL();
+      return fileUrl;
+    } catch (e) {
+      log('Business certificate upload error: $e');
+      throw 'Failed to upload business certificate: $e';
+    }
+  }
+
   void _signUp() async {
     final email = _emailController.text.trim();
     final username = _usernameController.text.trim();
@@ -364,7 +390,15 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (user != null) {
+        String? businessCertificateUrl;
         List<String>? uploadedCertificateUrls;
+
+        // Upload business certificate if applicable
+        if (providerType == 'Company' && _businessCertificate != null) {
+          businessCertificateUrl = await _uploadBusinessCertificate(_businessCertificate!, user.uid);
+        }
+
+        // Upload other certificates if applicable
         if (isMaintenanceProvider && _selectedCertificates != null && _selectedCertificates!.isNotEmpty) {
           uploadedCertificateUrls = await _uploadCertificates(_selectedCertificates!, user.uid);
         }
@@ -377,8 +411,9 @@ class _SignupScreenState extends State<SignupScreen> {
           'companyName': isMaintenanceProvider ? companyName : null,
           'location': location,
           'status': isMaintenanceProvider ? 'pending' : 'active', // Default value
-          'certificates': uploadedCertificateUrls,  // Store URLs of uploaded certificates
-          'serviceArea': isMaintenanceProvider ? 'General Area' : null,  // Default value
+          'certificates': uploadedCertificateUrls, // Store URLs of uploaded certificates
+          'businessCertificate': businessCertificateUrl, // URL of uploaded business certificate
+          'serviceArea': isMaintenanceProvider ? 'General Area' : null, // Default value
           'category': isMaintenanceProvider ? [] : null, // Initialize 'category' as an empty array
         };
 
@@ -402,4 +437,5 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     }
   }
+
 }
