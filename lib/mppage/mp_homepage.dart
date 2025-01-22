@@ -34,10 +34,10 @@ class _MaintenanceProviderHomePageState
     _pages = [
       _buildDashboard(),
       const BookingPage(),
-      const Center(child: Text('Inbox Page')),
       const MessagesPage(),
       MaintenanceProviderProfilePage(),
     ];
+
   }
 
   Future<void> _fetchOwnerName() async {
@@ -455,7 +455,6 @@ class _MaintenanceProviderHomePageState
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Bookings'),
-              BottomNavigationBarItem(icon: Icon(Icons.mail), label: 'Inbox'),
               BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
               BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
             ],
