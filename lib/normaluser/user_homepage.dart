@@ -239,9 +239,11 @@ class _HomePageContentState extends State<HomePageContent> {
     if (_searchQuery.isNotEmpty) {
       filteredServices = filteredServices.where((service) {
         return service['service']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase());
+            service['companyName']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            service['location']!.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
+
 
     if (filteredServices.isEmpty) {
       return [
