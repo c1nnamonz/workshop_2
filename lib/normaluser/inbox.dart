@@ -54,14 +54,23 @@ class _InboxPageState extends State<InboxPage> {
       print('User granted permission for notifications');
 
       // Listen for incoming messages while the app is in the foreground
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         print('Received a new message: ${message.notification?.title}');
 
-        // Show a notification
-        _showNotification(
-          title: message.notification?.title ?? 'New Message',
-          body: message.notification?.body ?? 'You have a new message',
-        );
+        // Check if the message is intended for the currently logged-in user
+        final currentUser = _auth.currentUser;
+        final userId = currentUser?.uid ?? '';
+
+        // Extract the receiverId from the message data
+        String? receiverId = message.data['receiverId'];
+
+        if (receiverId == userId) {
+          // Show a notification only if the message is intended for the current user
+          _showNotification(
+            title: message.notification?.title ?? 'New Message',
+            body: message.notification?.body ?? 'You have a new message',
+          );
+        }
       });
     } else {
       print('User declined or has not accepted notification permissions');
@@ -76,6 +85,7 @@ class _InboxPageState extends State<InboxPage> {
     _firestore
         .collection('chats')
         .where('receiverId', isEqualTo: userId)
+        .where('seen', isEqualTo: false) // Only listen for unseen messages
         .snapshots()
         .listen((snapshot) async {
       for (var change in snapshot.docChanges) {
@@ -244,7 +254,8 @@ class _InboxPageState extends State<InboxPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('chats')
-          .orderBy('timestamp', descending: true)
+          .where('receiverId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true) // Show all messages, regardless of seen status
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
