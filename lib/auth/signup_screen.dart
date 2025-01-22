@@ -193,18 +193,18 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 10),
                 CustomTextField(
-                  controller: _companyNameController,
-                  hint: 'Enter your company name',
-                  label: 'Company Name',
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
                   controller: _phoneController,
                   hint: 'Enter your phone number',
                   label: 'Phone Number',
                   keyboardType: TextInputType.number,
                 ),
                 if (isMaintenanceProvider) ...[
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    controller: _companyNameController,
+                    hint: 'Enter your company name',
+                    label: 'Company Name',
+                  ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: providerType,

@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
             return;
-          } else if (status == 'Pending') {
+          } else if (status == 'Pending'|| status == 'pending') {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Your registration request is still pending.'),

@@ -282,7 +282,7 @@ class _MaintenanceProviderHomePageState
           ),
           const SizedBox(height: 10),
           Text(
-            '\$${totalSales.toStringAsFixed(2)}',
+            'MYR ${totalSales.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.bold,
