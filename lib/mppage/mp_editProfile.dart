@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // Add Firebase Storage
 import 'dart:io';
 
 class EditMaintenanceProfilePage extends StatefulWidget {
@@ -52,8 +53,26 @@ class _EditMaintenanceProfilePageState
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
-        _profileImageUrl = null; // Temporary, until the new image is saved
+        _profileImageUrl = null; // Clear the previous image URL
       });
+    }
+  }
+
+  Future<String?> _uploadImageToFirebase(File imageFile) async {
+    try {
+      // Create a unique file name
+      String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+      Reference storageRef =
+      FirebaseStorage.instance.ref().child('profile_images/$fileName');
+
+      // Upload the file
+      await storageRef.putFile(imageFile);
+
+      // Get the download URL
+      return await storageRef.getDownloadURL();
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;
     }
   }
 
@@ -121,14 +140,18 @@ class _EditMaintenanceProfilePageState
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  String? imageUrl;
+                  if (_imageFile != null) {
+                    imageUrl = await _uploadImageToFirebase(_imageFile!);
+                  }
+
                   widget.onSave(
                     _companyNameController.text,
                     _ownerNameController.text,
                     _operatingHoursController.text,
                     _locationController.text,
-                    _profileImageUrl ??
-                        widget.profileImageUrl, // Use existing if not updated
+                    imageUrl ?? _profileImageUrl ?? widget.profileImageUrl,
                   );
                   Navigator.pop(context);
                 },

@@ -74,6 +74,7 @@ class _ServicesManagerState extends State<ServicesManager> {
             "service": doc["service"] ?? "",
             "description": doc["description"] ?? "",
             "price": doc["price"] ?? "",
+            "rating": doc["rating"] ?? 3, // Default value of 3
           };
         }).toList();
       });
@@ -91,6 +92,7 @@ class _ServicesManagerState extends State<ServicesManager> {
         "service": "",
         "description": "",
         "price": "",
+        "rating": 3, // Default rating when new service is added
       });
     });
   }
@@ -125,6 +127,7 @@ class _ServicesManagerState extends State<ServicesManager> {
           "service": service["service"],
           "description": service["description"],
           "price": service["price"],
+          "rating": service["rating"] ?? 3, // Ensure rating is saved with default if not modified
         };
 
         if (documentId == null) {
