@@ -340,9 +340,8 @@ class _InboxPageState extends State<InboxPage> {
       try {
         DocumentSnapshot otherUserDoc = await _firestore.collection('users').doc(otherUserId).get();
         if (otherUserDoc.exists) {
-          String firstName = otherUserDoc['firstName'] ?? '';
-          String lastName = otherUserDoc['lastName'] ?? '';
-          String otherUserName = '$firstName $lastName'.trim();
+          String companyName = otherUserDoc['companyName'] ?? '';
+          String otherUserName = '$companyName'.trim();
           if (otherUserName.isEmpty) {
             otherUserName = 'Unknown User';
           }
