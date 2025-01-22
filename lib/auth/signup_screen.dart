@@ -27,10 +27,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _phoneController = TextEditingController();
 
   bool isMaintenanceProvider = false;
+  String? providerType;
   Position? _currentPosition;
   LatLng? _selectedLocation;
+  File? _businessCertificate;
   List<File>? _selectedCertificates = [];
-  String? _uploadedCertificateUrl;
 
   @override
   void dispose() {
@@ -64,7 +65,7 @@ class _SignupScreenState extends State<SignupScreen> {
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
+      if (permission == LocationPermission.denied) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location permission denied')),
         );
@@ -82,38 +83,26 @@ class _SignupScreenState extends State<SignupScreen> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
-      allowMultiple: true,  // Allow multiple file selection
+      allowMultiple: true,
     );
 
     if (result != null) {
       setState(() {
-        _selectedCertificates = result.files.map((file) => File(file.path!)).toList();  // Store selected files as a list
+        _selectedCertificates = result.files.map((file) => File(file.path!)).toList();
       });
     }
   }
 
-  Future<List<String>> _uploadCertificates(List<File> files, String userId) async {
-    List<String> uploadedUrls = [];
+  Future<void> _selectBusinessCertificate() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
 
-    try {
-      for (var file in files) {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
-
-        log('Uploading file: ${file.path}');
-
-        final uploadTask = await storageRef.putFile(file);
-        log('Upload completed: ${uploadTask.ref.name}');
-
-        final fileUrl = await uploadTask.ref.getDownloadURL();
-        uploadedUrls.add(fileUrl);
-      }
-
-      return uploadedUrls;
-    } catch (e) {
-      log('Certificate upload error: $e');
-      throw 'Failed to upload certificates: $e';
+    if (result != null) {
+      setState(() {
+        _businessCertificate = File(result.files.single.path!);
+      });
     }
   }
 
@@ -154,6 +143,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     TextButton(
                       onPressed: () => setState(() {
                         isMaintenanceProvider = false;
+                        providerType = null;
                       }),
                       style: TextButton.styleFrom(
                         backgroundColor: !isMaintenanceProvider ? Colors.green : Colors.grey[300],
@@ -201,24 +191,51 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'Confirm Password',
                   isPassword: true,
                 ),
-                // Show company name field for maintenance providers only
-                if (isMaintenanceProvider) ...[
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    controller: _companyNameController,
-                    hint: 'Enter your company name',
-                    label: 'Company Name',
-                  ),
-                ],
                 const SizedBox(height: 10),
                 CustomTextField(
-                  controller: _phoneController,
-                  hint: 'Enter your phone number',
-                  label: 'Phone Number',
-                  keyboardType: TextInputType.phone,
+                  controller: _companyNameController,
+                  hint: 'Enter your company name',
+                  label: 'Company Name',
                 ),
-                const SizedBox(height: 10),
                 if (isMaintenanceProvider) ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: providerType,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'Personal Provider',
+                        child: Text('Personal Provider'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Company',
+                        child: Text('Company'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        providerType = value;
+                      });
+                    },
+                    hint: const Text('Select Provider Type'),
+                  ),
+                  if (providerType == 'Company') ...[
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: _selectBusinessCertificate,
+                      child: Text(_businessCertificate == null
+                          ? 'Upload Business Certificate (PDF)'
+                          : 'Business Certificate Selected'),
+                    ),
+                    if (_businessCertificate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Selected File: ${_businessCertificate!.path.split('/').last}',
+                          style: const TextStyle(color: Colors.black87),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 10),
                   ElevatedButton(
                     onPressed: _selectCertificates,
                     child: Text(_selectedCertificates == null || _selectedCertificates!.isEmpty
@@ -277,6 +294,31 @@ class _SignupScreenState extends State<SignupScreen> {
     context,
     MaterialPageRoute(builder: (context) => const LoginScreen()),
   );
+
+  Future<List<String>> _uploadCertificates(List<File> files, String userId) async {
+    List<String> uploadedUrls = [];
+
+    try {
+      for (var file in files) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('certificates/$userId/${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}');
+
+        log('Uploading file: ${file.path}');
+
+        final uploadTask = await storageRef.putFile(file);
+        log('Upload completed: ${uploadTask.ref.name}');
+
+        final fileUrl = await uploadTask.ref.getDownloadURL();
+        uploadedUrls.add(fileUrl);
+      }
+
+      return uploadedUrls;
+    } catch (e) {
+      log('Certificate upload error: $e');
+      throw 'Failed to upload certificates: $e';
+    }
+  }
 
   void _signUp() async {
     final email = _emailController.text.trim();
